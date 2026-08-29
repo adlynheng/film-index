@@ -6,6 +6,10 @@ export function slugify(value: string): string {
     // "Alfonso Cuarón" slugifies to "alfonso-cuaro-n" — the mark falls through
     // to the punctuation rule below and becomes a hyphen.
     .replace(/[\u0300-\u036f]/g, "")
+    // Elide apostrophes rather than letting them fall through to the
+    // punctuation rule below, which would split "Won't" into "won-t".
+    // Covers both the straight (') and typographic (\u2019) forms.
+    .replace(/['\u2019]/g, "")
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
 }

@@ -14,6 +14,15 @@ describe("slugify", () => {
     expect(slugify("(Untitled)")).toBe("untitled");
   });
 
+  it("elides apostrophes instead of turning them into hyphens", () => {
+    expect(slugify("Won't You Be My Neighbor?")).toBe("wont-you-be-my-neighbor");
+    expect(slugify("Ocean's Eleven")).toBe("oceans-eleven");
+  });
+
+  it("elides typographic apostrophes too", () => {
+    expect(slugify("Won\u2019t You Be My Neighbor?")).toBe("wont-you-be-my-neighbor");
+  });
+
   it("folds accented characters down to their base letter", () => {
     expect(slugify("Alfonso Cuarón")).toBe("alfonso-cuaron");
     expect(slugify("Stellan Skarsgård")).toBe("stellan-skarsgard");
