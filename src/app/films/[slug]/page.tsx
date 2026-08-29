@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { CastList } from "@/components/film-detail/CastList";
 import { FilmHero } from "@/components/film-detail/FilmHero";
 import { getFilmBySlug } from "@/lib/db/films";
-import { buildImageUrl } from "@/lib/images/r2";
+import { buildFilmImage } from "@/lib/images/r2";
 
 interface FilmDetailPageProps {
   params: Promise<{ slug: string }>;
@@ -30,7 +30,7 @@ export default async function FilmDetailPage({ params }: FilmDetailPageProps) {
         <FilmHero
           title={film.title}
           yearLabel={film.year ? `(${film.year})` : ""}
-          imageUrl={buildImageUrl(film.posterKey, "full")}
+          image={buildFilmImage(film.posterKey)}
         />
 
         <dl className="col-start-1 row-start-3 mt-[22px] grid grid-cols-[repeat(auto-fit,minmax(190px,1fr))] gap-x-[52px] gap-y-[20px] border-t border-border pt-[20px]">

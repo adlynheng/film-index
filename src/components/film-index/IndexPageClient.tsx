@@ -8,7 +8,7 @@ import { FranchiseSection } from "@/components/film-index/FranchiseSection";
 import { IndexHeader } from "@/components/film-index/IndexHeader";
 import { SiteFooter } from "@/components/film-index/SiteFooter";
 import { SortControls } from "@/components/film-index/SortControls";
-import { buildImageUrl } from "@/lib/images/r2";
+import { buildFilmImage, type FilmImage } from "@/lib/images/r2";
 import type { FilmCategory, FilmSummary, Franchise } from "@/lib/types";
 
 interface IndexPageClientProps {
@@ -21,10 +21,10 @@ export function IndexPageClient({ films, franchises, isOwner }: IndexPageClientP
   const [selectedCategories, setSelectedCategories] = useState<(FilmCategory | "Franchises")[]>([]);
   const [sortBy, setSortBy] = useState<"year" | "title">("year");
 
-  const imageUrlByFilmId = useMemo(() => {
-    const map = new Map<string, string | null>();
+  const imageByFilmId = useMemo(() => {
+    const map = new Map<string, FilmImage | null>();
     for (const film of films) {
-      map.set(film.id, buildImageUrl(film.posterKey, "thumbnail"));
+      map.set(film.id, buildFilmImage(film.posterKey));
     }
     return map;
   }, [films]);
@@ -82,7 +82,7 @@ export function IndexPageClient({ films, franchises, isOwner }: IndexPageClientP
         {gridActive &&
           (visibleFilms.length > 0 ? (
             <div className="mt-[56px]">
-              <FilmGrid films={visibleFilms} imageUrlByFilmId={imageUrlByFilmId} />
+              <FilmGrid films={visibleFilms} imageByFilmId={imageByFilmId} />
             </div>
           ) : (
             <p className="my-[80px] text-[17px] text-muted">Nothing logged in these categories yet.</p>
@@ -91,7 +91,7 @@ export function IndexPageClient({ films, franchises, isOwner }: IndexPageClientP
         {showingFranchises && (
           <div className="mt-[64px] flex flex-col gap-[96px]">
             {franchises.map((franchise) => (
-              <FranchiseSection key={franchise.id} franchise={franchise} imageUrlByFilmId={imageUrlByFilmId} />
+              <FranchiseSection key={franchise.id} franchise={franchise} imageByFilmId={imageByFilmId} />
             ))}
           </div>
         )}

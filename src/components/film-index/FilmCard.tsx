@@ -2,14 +2,15 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import type { FilmImage } from "@/lib/images/r2";
 import type { FilmSummary } from "@/lib/types";
 
 interface FilmCardProps {
   film: FilmSummary;
-  imageUrl: string | null;
+  image: FilmImage | null;
 }
 
-export function FilmCard({ film, imageUrl }: FilmCardProps) {
+export function FilmCard({ film, image }: FilmCardProps) {
   const [isHovered, setIsHovered] = useState(false);
 
   return (
@@ -19,9 +20,20 @@ export function FilmCard({ film, imageUrl }: FilmCardProps) {
       onMouseLeave={() => setIsHovered(false)}
     >
       <div className="relative aspect-video w-full bg-tile">
-        {imageUrl ? (
+        {image ? (
           // eslint-disable-next-line @next/next/no-img-element -- pre-sized/pre-cached R2 asset, see spec §6
-          <img src={imageUrl} alt={film.title} className="h-full w-full object-cover" loading="lazy" />
+          <img
+            src={image.src}
+            srcSet={image.srcSet}
+            // Deliberately wider than the tile's own box: object-cover scales a
+            // 2.40:1 frame by height, so it renders ~1.35x wider than the box,
+            // and srcset selection has no way to know that. Measured tiles are
+            // ~430px at 1920, ~427px at 1440, ~452px at 1024, ~310px on a phone.
+            sizes="(min-width: 1400px) 40vw, (min-width: 700px) 60vw, 100vw"
+            alt={film.title}
+            className="h-full w-full object-cover"
+            loading="lazy"
+          />
         ) : null}
         <Link
           href={`/films/${film.slug}`}

@@ -8,6 +8,7 @@
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useWindowVirtualizer } from "@tanstack/react-virtual";
 import { FilmCard } from "@/components/film-index/FilmCard";
+import type { FilmImage } from "@/lib/images/r2";
 import type { FilmSummary } from "@/lib/types";
 
 // Grid metrics from My Film Index.dc.html: gap "76px 40px",
@@ -37,10 +38,10 @@ function estimateRowHeight(columnWidth: number): number {
 
 interface FilmGridProps {
   films: FilmSummary[];
-  imageUrlByFilmId: Map<string, string | null>;
+  imageByFilmId: Map<string, FilmImage | null>;
 }
 
-export function FilmGrid({ films, imageUrlByFilmId }: FilmGridProps) {
+export function FilmGrid({ films, imageByFilmId }: FilmGridProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [availableWidth, setAvailableWidth] = useState(ASSUMED_INITIAL_WIDTH);
   const [scrollMargin, setScrollMargin] = useState(0);
@@ -109,7 +110,7 @@ export function FilmGrid({ films, imageUrlByFilmId }: FilmGridProps) {
               className="min-w-0 flex-none"
               style={{ width: `calc((100% - ${COLUMN_GAP * (columnsPerRow - 1)}px) / ${columnsPerRow})` }}
             >
-              <FilmCard film={film} imageUrl={imageUrlByFilmId.get(film.id) ?? null} />
+              <FilmCard film={film} image={imageByFilmId.get(film.id) ?? null} />
             </div>
           ))}
         </div>

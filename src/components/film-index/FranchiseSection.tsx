@@ -1,12 +1,13 @@
 import { FilmGrid } from "@/components/film-index/FilmGrid";
+import type { FilmImage } from "@/lib/images/r2";
 import type { Franchise } from "@/lib/types";
 
 interface FranchiseSectionProps {
   franchise: Franchise;
-  imageUrlByFilmId: Map<string, string | null>;
+  imageByFilmId: Map<string, FilmImage | null>;
 }
 
-export function FranchiseSection({ franchise, imageUrlByFilmId }: FranchiseSectionProps) {
+export function FranchiseSection({ franchise, imageByFilmId }: FranchiseSectionProps) {
   const years = franchise.films.map((film) => film.year).filter((year): year is number => year !== null);
   const yearSpan = years.length > 0 ? `${Math.min(...years)}–${Math.max(...years)}` : "";
 
@@ -22,7 +23,7 @@ export function FranchiseSection({ franchise, imageUrlByFilmId }: FranchiseSecti
         <span className="text-[13px] text-muted">{yearSpan}</span>
       </div>
       <div className="mt-[56px]">
-        <FilmGrid films={franchise.films} imageUrlByFilmId={imageUrlByFilmId} />
+        <FilmGrid films={franchise.films} imageByFilmId={imageByFilmId} />
       </div>
     </section>
   );
