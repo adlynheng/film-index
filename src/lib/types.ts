@@ -19,6 +19,9 @@ export interface FilmSummary {
 
 export interface FilmDetail extends FilmSummary {
   cast: CastCredit[];
+  // The detail page's "Filed under" lists the categories *and* the franchise
+  // name, so the franchise has to be resolved alongside the film itself.
+  franchiseName: string | null;
 }
 
 export interface Franchise {

@@ -46,7 +46,13 @@ export async function listFilms(): Promise<FilmSummary[]> {
 }
 
 export async function getFilmBySlug(slug: string): Promise<FilmDetail | null> {
-  const [row] = await sql<FilmRow[]>`select * from films where slug = ${slug} limit 1`;
+  const [row] = await sql<(FilmRow & { franchise_name: string | null })[]>`
+    select f.*, fr.name as franchise_name
+    from films f
+    left join franchises fr on fr.id = f.franchise_id
+    where f.slug = ${slug}
+    limit 1
+  `;
   if (!row) return null;
 
   const categoriesByFilmId = await attachCategories([row]);
@@ -63,7 +69,11 @@ export async function getFilmBySlug(slug: string): Promise<FilmDetail | null> {
     role: castRow.role ?? "",
   }));
 
-  return { ...toFilmSummary(row, categoriesByFilmId.get(row.id) ?? []), cast };
+  return {
+    ...toFilmSummary(row, categoriesByFilmId.get(row.id) ?? []),
+    cast,
+    franchiseName: row.franchise_name,
+  };
 }
 
 export async function filmSlugExists(candidateSlug: string): Promise<boolean> {
