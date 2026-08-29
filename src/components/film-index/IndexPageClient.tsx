@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { AddTitleButton } from "@/components/film-index/AddTitleButton";
 import { CategoryChips } from "@/components/film-index/CategoryChips";
 import { FilmGrid } from "@/components/film-index/FilmGrid";
 import { FranchiseSection } from "@/components/film-index/FranchiseSection";
@@ -13,9 +14,10 @@ import type { FilmCategory, FilmSummary, Franchise } from "@/lib/types";
 interface IndexPageClientProps {
   films: FilmSummary[];
   franchises: Franchise[];
+  isOwner: boolean;
 }
 
-export function IndexPageClient({ films, franchises }: IndexPageClientProps) {
+export function IndexPageClient({ films, franchises, isOwner }: IndexPageClientProps) {
   const [selectedCategories, setSelectedCategories] = useState<(FilmCategory | "Franchises")[]>([]);
   const [sortBy, setSortBy] = useState<"year" | "title">("year");
 
@@ -96,6 +98,8 @@ export function IndexPageClient({ films, franchises }: IndexPageClientProps) {
       </main>
 
       <SiteFooter />
+
+      {isOwner && <AddTitleButton onClick={() => {/* Task 18 wires this to open AddTitleModal */}} />}
     </div>
   );
 }
