@@ -1,4 +1,9 @@
 "use client";
+// The virtualizer re-renders by mutating a stable instance, which the React
+// Compiler cannot observe: it sees `virtualizer` and `rows` unchanged and
+// memoises the row list, so the grid freezes on its first window and never
+// mounts the rows below the fold. This is the compiler's documented opt-out.
+"use no memo";
 
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useWindowVirtualizer } from "@tanstack/react-virtual";
@@ -96,7 +101,14 @@ export function FilmGrid({ films, imageUrlByFilmId }: FilmGridProps) {
           }}
         >
           {rows[virtualRow.index].map((film) => (
-            <div key={film.id} className="min-w-0 flex-1">
+            // A fixed basis rather than flex-1: the design's grid keeps its
+            // empty tracks, so a short final row (or a two-film franchise) must
+            // leave a gap instead of stretching its cards across the full width.
+            <div
+              key={film.id}
+              className="min-w-0 flex-none"
+              style={{ width: `calc((100% - ${COLUMN_GAP * (columnsPerRow - 1)}px) / ${columnsPerRow})` }}
+            >
               <FilmCard film={film} imageUrl={imageUrlByFilmId.get(film.id) ?? null} />
             </div>
           ))}
