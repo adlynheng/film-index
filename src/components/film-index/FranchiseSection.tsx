@@ -15,7 +15,7 @@ export function FranchiseSection({ franchise, imageByFilmId }: FranchiseSectionP
     <section>
       <div className="flex flex-wrap items-baseline gap-x-[24px] gap-y-[8px] border-t border-border px-[4px] pt-[26px]">
         <span className="min-w-[52px] text-[13px] text-muted">
-          {String(franchise.films.length).padStart(2, "0")} films
+          {String(franchise.films.length).padStart(2, "0")} {franchise.films.length === 1 ? "film" : "films"}
         </span>
         <h2 className="min-w-[180px] flex-1 text-[clamp(26px,3vw,44px)] font-medium leading-none tracking-[-0.025em]">
           {franchise.name}
