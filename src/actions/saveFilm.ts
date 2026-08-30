@@ -50,6 +50,7 @@ export async function saveFilm(input: SaveFilmInput): Promise<{ slug: string }> 
   // given a cache profile.
   revalidatePath("/");
   revalidatePath(`/films/${slug}`);
+  revalidatePath("/actors");
 
   return { slug };
 }
