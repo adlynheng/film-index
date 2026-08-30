@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { AddTitleModal } from "@/components/add-title/AddTitleModal";
 import { AddTitleButton } from "@/components/film-index/AddTitleButton";
 import { CategoryChips } from "@/components/film-index/CategoryChips";
 import { FilmGrid } from "@/components/film-index/FilmGrid";
@@ -20,6 +21,7 @@ interface IndexPageClientProps {
 export function IndexPageClient({ films, franchises, isOwner }: IndexPageClientProps) {
   const [selectedCategories, setSelectedCategories] = useState<(FilmCategory | "Franchises")[]>([]);
   const [sortBy, setSortBy] = useState<"year" | "title">("year");
+  const [isAddingTitle, setIsAddingTitle] = useState(false);
 
   const imageByFilmId = useMemo(() => {
     const map = new Map<string, FilmImage | null>();
@@ -99,7 +101,17 @@ export function IndexPageClient({ films, franchises, isOwner }: IndexPageClientP
 
       <SiteFooter />
 
-      {isOwner && <AddTitleButton onClick={() => {/* Task 18 wires this to open AddTitleModal */}} />}
+      {isOwner && <AddTitleButton onClick={() => setIsAddingTitle(true)} />}
+
+      {isAddingTitle ? (
+        <AddTitleModal
+          onClose={() => setIsAddingTitle(false)}
+          // The franchise picker's options come from the franchises already
+          // fetched for the Franchises view, so opening the modal costs no
+          // extra query.
+          existingFranchises={franchises.map((franchise) => franchise.name)}
+        />
+      ) : null}
     </div>
   );
 }
