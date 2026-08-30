@@ -71,7 +71,7 @@ const franchises: SeedFranchise[] = [
   },
 ];
 
-async function seedFilm(film: SeedFilm, franchiseId: string | null): Promise<void> {
+async function seedFilm(film: SeedFilm, franchiseName: string | null): Promise<void> {
   const slug = await generateUniqueFilmSlug(film.title, film.year, filmSlugExists);
   await insertFilm({
     id: randomUUID(),
@@ -80,7 +80,7 @@ async function seedFilm(film: SeedFilm, franchiseId: string | null): Promise<voi
     year: film.year,
     director: film.director,
     posterKey: null,
-    franchiseId,
+    franchiseName,
     categories: film.categories,
     cast: film.cast.map(([personName, role]) => ({ personName, role })),
   });
@@ -88,12 +88,13 @@ async function seedFilm(film: SeedFilm, franchiseId: string | null): Promise<voi
 }
 
 async function seedFranchise(franchise: SeedFranchise): Promise<void> {
-  const [{ id: franchiseId }] = await sql<{ id: string }[]>`
-    insert into franchises (name) values (${franchise.name}) returning id
-  `;
+  // insertFilm creates the franchise on first use now, so seeding only needs to
+  // pass the name down. The row is still created explicitly here so a franchise
+  // with no films would exist, and to keep the log line.
+  await sql`insert into franchises (name) values (${franchise.name})`;
   console.log(`seeded franchise: ${franchise.name}`);
   for (const film of franchise.films) {
-    await seedFilm(film, franchiseId);
+    await seedFilm(film, franchise.name);
   }
 }
 

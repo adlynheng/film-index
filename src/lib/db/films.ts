@@ -90,16 +90,39 @@ export interface InsertFilmParams {
   year: number | null;
   director: string | null;
   posterKey: string | null;
-  franchiseId: string | null;
+  // A name, not an id: the design's franchise control is a combobox, so the
+  // caller may name one that does not exist yet. Resolved or created inside
+  // the transaction below.
+  franchiseName: string | null;
   categories: FilmCategory[];
   cast: { personName: string; role: string }[];
 }
 
 export async function insertFilm(params: InsertFilmParams): Promise<void> {
   await sql.begin(async (transaction) => {
+    let franchiseId: string | null = null;
+    if (params.franchiseName) {
+      // Matched case-insensitively so typing "alien" does not create a second
+      // franchise alongside "Alien". The unique index on name is case
+      // sensitive, so it would happily allow the duplicate.
+      const [existingFranchise] = await transaction<{ id: string }[]>`
+        select id from franchises where lower(name) = lower(${params.franchiseName}) limit 1
+      `;
+      if (existingFranchise) {
+        franchiseId = existingFranchise.id;
+      } else {
+        const [createdFranchise] = await transaction<{ id: string }[]>`
+          insert into franchises (name) values (${params.franchiseName})
+          on conflict (name) do update set name = excluded.name
+          returning id
+        `;
+        franchiseId = createdFranchise.id;
+      }
+    }
+
     await transaction`
       insert into films (id, slug, title, year, director, poster_key, franchise_id)
-      values (${params.id}, ${params.slug}, ${params.title}, ${params.year}, ${params.director}, ${params.posterKey}, ${params.franchiseId})
+      values (${params.id}, ${params.slug}, ${params.title}, ${params.year}, ${params.director}, ${params.posterKey}, ${franchiseId})
     `;
 
     for (const category of params.categories) {
