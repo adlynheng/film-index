@@ -22,7 +22,7 @@ interface DraftFilm {
   year: number | null;
   director: string;
   categories: FilmCategory[];
-  cast: { name: string; role: string }[];
+  cast: TmdbSearchResult["cast"];
   franchiseName: string | null;
 }
 

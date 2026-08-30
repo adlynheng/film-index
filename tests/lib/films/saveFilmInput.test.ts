@@ -45,14 +45,52 @@ describe("normalizeSaveFilmInput", () => {
       })
     );
     expect(result.cast).toEqual([
-      { personName: "Andy Serkis", role: "Gollum" },
-      { personName: "Elijah Wood", role: "Frodo" },
+      { personName: "Andy Serkis", role: "Gollum", tmdbPersonId: null },
+      { personName: "Elijah Wood", role: "Frodo", tmdbPersonId: null },
     ]);
+  });
+
+  // Identity is the TMDB person id wherever there is one, so a person credited
+  // twice collapses even if TMDB spells the name differently between credits.
+  it("de-duplicates on the TMDB person id rather than the name", () => {
+    const result = normalizeSaveFilmInput(
+      input({
+        cast: [
+          { name: "Andy Serkis", role: "Gollum", tmdbPersonId: 1907 },
+          { name: "Andy Serkis", role: "Sméagol", tmdbPersonId: 1907 },
+        ],
+      })
+    );
+    expect(result.cast).toEqual([{ personName: "Andy Serkis", role: "Gollum", tmdbPersonId: 1907 }]);
+  });
+
+  // The whole point of keying on the id: two different working actors share a
+  // name often enough that merging them would fabricate a network edge.
+  it("keeps two same-named people apart when their TMDB ids differ", () => {
+    const result = normalizeSaveFilmInput(
+      input({
+        cast: [
+          { name: "Chris Evans", role: "Steve Rogers", tmdbPersonId: 16828 },
+          { name: "Chris Evans", role: "Himself", tmdbPersonId: 1223786 },
+        ],
+      })
+    );
+    expect(result.cast).toEqual([
+      { personName: "Chris Evans", role: "Steve Rogers", tmdbPersonId: 16828 },
+      { personName: "Chris Evans", role: "Himself", tmdbPersonId: 1223786 },
+    ]);
+  });
+
+  it("discards a tmdbPersonId that is not a positive integer", () => {
+    const result = normalizeSaveFilmInput(
+      input({ cast: [{ name: "Real", role: "", tmdbPersonId: "1907; drop table people" }] })
+    );
+    expect(result.cast).toEqual([{ personName: "Real", role: "", tmdbPersonId: null }]);
   });
 
   it("drops cast entries with no name", () => {
     const result = normalizeSaveFilmInput(input({ cast: [{ name: "  ", role: "Extra" }, { name: "Real", role: "" }] }));
-    expect(result.cast).toEqual([{ personName: "Real", role: "" }]);
+    expect(result.cast).toEqual([{ personName: "Real", role: "", tmdbPersonId: null }]);
   });
 
   it("defaults to Movies when no category is chosen, matching the design", () => {

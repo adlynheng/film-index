@@ -19,7 +19,7 @@ export interface SaveFilmInput {
   year: number | null;
   director: string;
   categories: FilmCategory[];
-  cast: { name: string; role: string }[];
+  cast: { name: string; role: string; tmdbPersonId?: number | null }[];
   franchiseName: string | null;
   frameImageBytes: ArrayBuffer | null;
 }
@@ -29,7 +29,7 @@ export interface NormalizedFilmInput {
   year: number | null;
   director: string | null;
   categories: FilmCategory[];
-  cast: { personName: string; role: string }[];
+  cast: { personName: string; role: string; tmdbPersonId: number | null }[];
   franchiseName: string | null;
 }
 
@@ -53,13 +53,22 @@ export function normalizeSaveFilmInput(input: SaveFilmInput): NormalizedFilmInpu
 
   // film_cast is PRIMARY KEY (film_id, person_id), so the same person credited
   // twice would abort the insert. TMDB does return actors in multiple roles.
-  const seenPersonNames = new Set<string>();
-  const cast: { personName: string; role: string }[] = [];
+  //
+  // Identity is the TMDB person id where there is one, and the name only as a
+  // fallback: two different actors can share a name, and de-duplicating those
+  // together would merge them into one node in the actor network.
+  const seenPeople = new Set<string>();
+  const cast: { personName: string; role: string; tmdbPersonId: number | null }[] = [];
   for (const member of Array.isArray(input.cast) ? input.cast : []) {
     const personName = String(member?.name ?? "").trim();
-    if (personName.length === 0 || seenPersonNames.has(personName)) continue;
-    seenPersonNames.add(personName);
-    cast.push({ personName, role: String(member?.role ?? "").trim() });
+    if (personName.length === 0) continue;
+
+    const tmdbPersonId = normalizeTmdbPersonId(member?.tmdbPersonId);
+    const identity = tmdbPersonId === null ? `name:${personName}` : `tmdb:${tmdbPersonId}`;
+    if (seenPeople.has(identity)) continue;
+    seenPeople.add(identity);
+
+    cast.push({ personName, role: String(member?.role ?? "").trim(), tmdbPersonId });
   }
 
   const franchiseName = String(input.franchiseName ?? "").trim();
@@ -73,6 +82,14 @@ export function normalizeSaveFilmInput(input: SaveFilmInput): NormalizedFilmInpu
     cast,
     franchiseName: franchiseName.length > 0 ? franchiseName : null,
   };
+}
+
+// Untrusted like every other Server Action argument, and it reaches a column
+// typed `integer` — anything that is not a positive whole number is discarded
+// rather than coerced, leaving the row to fall back to name identity.
+function normalizeTmdbPersonId(candidate: unknown): number | null {
+  if (typeof candidate !== "number" || !Number.isInteger(candidate) || candidate <= 0) return null;
+  return candidate;
 }
 
 function isFilmCategory(candidate: unknown): candidate is FilmCategory {

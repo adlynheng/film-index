@@ -82,7 +82,9 @@ async function seedFilm(film: SeedFilm, franchiseName: string | null): Promise<v
     posterKey: null,
     franchiseName,
     categories: film.categories,
-    cast: film.cast.map(([personName, role]) => ({ personName, role })),
+    // The seed's cast is hand-written rather than fetched, so it has no TMDB
+    // ids. Those rows resolve on name until a TMDB-sourced credit claims them.
+    cast: film.cast.map(([personName, role]) => ({ personName, role, tmdbPersonId: null })),
   });
   console.log(`seeded film: ${film.title} (${slug})`);
 }

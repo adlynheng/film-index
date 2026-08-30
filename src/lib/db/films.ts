@@ -1,3 +1,4 @@
+import type { TransactionSql } from "postgres";
 import { sql } from "@/lib/db/client";
 import type { CastCredit, FilmCategory, FilmDetail, FilmSummary } from "@/lib/types";
 
@@ -95,7 +96,7 @@ export interface InsertFilmParams {
   // the transaction below.
   franchiseName: string | null;
   categories: FilmCategory[];
-  cast: { personName: string; role: string }[];
+  cast: { personName: string; role: string; tmdbPersonId: number | null }[];
 }
 
 export async function insertFilm(params: InsertFilmParams): Promise<void> {
@@ -132,15 +133,59 @@ export async function insertFilm(params: InsertFilmParams): Promise<void> {
     }
 
     for (const [index, castMember] of params.cast.entries()) {
-      const [person] = await transaction<{ id: string }[]>`
-        insert into people (name) values (${castMember.personName})
-        on conflict (name) do update set name = excluded.name
-        returning id
-      `;
+      const personId = await resolvePersonId(transaction, castMember);
       await transaction`
         insert into film_cast (film_id, person_id, role, sort_order)
-        values (${params.id}, ${person.id}, ${castMember.role}, ${index})
+        values (${params.id}, ${personId}, ${castMember.role}, ${index})
       `;
     }
   });
+}
+
+/**
+ * Finds or creates the `people` row a credit belongs to. This is the join that
+ * builds the actor network: two actors are connected when they share a film,
+ * so whether two credits resolve to one row or two decides whether an edge
+ * exists at all.
+ *
+ * Identity is the TMDB person id wherever there is one. Names are not unique —
+ * several working actors are called Chris Evans — and keying on the name would
+ * merge them into one node carrying both of their filmographies.
+ */
+async function resolvePersonId(
+  transaction: TransactionSql,
+  castMember: { personName: string; tmdbPersonId: number | null }
+): Promise<string> {
+  if (castMember.tmdbPersonId === null) {
+    // No id to key on, so the name is the only identity available. The unique
+    // index this conflicts against is partial (`where tmdb_person_id is null`),
+    // so it never collides with a TMDB-sourced row.
+    const [person] = await transaction<{ id: string }[]>`
+      insert into people (name) values (${castMember.personName})
+      on conflict (name) where tmdb_person_id is null do update set name = excluded.name
+      returning id
+    `;
+    return person.id;
+  }
+
+  // Seeded people carry no TMDB id, so the first time one of them is credited
+  // from TMDB their existing row is claimed rather than duplicated — otherwise
+  // seeded Cillian Murphy and TMDB Cillian Murphy would be two separate nodes.
+  // A name-only row is an unresolved guess, so claiming can in principle
+  // attach the id to a same-named stranger; that ambiguity is exactly what
+  // having no id means, and every row claimed this way becomes unambiguous.
+  const [claimed] = await transaction<{ id: string }[]>`
+    update people set tmdb_person_id = ${castMember.tmdbPersonId}
+    where name = ${castMember.personName} and tmdb_person_id is null
+    returning id
+  `;
+  if (claimed) return claimed.id;
+
+  const [person] = await transaction<{ id: string }[]>`
+    insert into people (name, tmdb_person_id)
+    values (${castMember.personName}, ${castMember.tmdbPersonId})
+    on conflict (tmdb_person_id) do update set name = excluded.name
+    returning id
+  `;
+  return person.id;
 }

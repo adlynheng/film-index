@@ -5,7 +5,7 @@ export interface TmdbSearchResult {
   year: number | null;
   director: string;
   categories: FilmCategory[];
-  cast: { name: string; role: string }[];
+  cast: { name: string; role: string; tmdbPersonId: number }[];
   posterUrl: string | null;
 }
 
@@ -23,7 +23,7 @@ interface TmdbDetail {
   poster_path?: string | null;
   created_by?: { name: string }[];
   credits?: {
-    cast?: { name: string; character: string }[];
+    cast?: { id: number; name: string; character: string }[];
     crew?: { name: string; job: string }[];
   };
 }
@@ -96,7 +96,13 @@ export async function searchTmdb(query: string): Promise<TmdbSearchResult[]> {
         categories: toCategories(item.media_type, detail.genres ?? []),
         cast: (detail.credits?.cast ?? [])
           .slice(0, MAX_CAST_MEMBERS)
-          .map((castMember) => ({ name: castMember.name, role: castMember.character })),
+          // The id travels with the credit because names are not unique:
+          // `people` is keyed on it so two same-named actors stay two nodes.
+          .map((castMember) => ({
+            name: castMember.name,
+            role: castMember.character,
+            tmdbPersonId: castMember.id,
+          })),
         posterUrl: detail.poster_path ? `${TMDB_IMAGE_BASE_URL}${detail.poster_path}` : null,
       };
     })

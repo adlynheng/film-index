@@ -19,7 +19,7 @@ const MOVIE_DETAIL = {
   genres: [{ id: 28 }],
   poster_path: "/poster.jpg",
   credits: {
-    cast: [{ name: "Leonardo DiCaprio", character: "Dom Cobb" }],
+    cast: [{ id: 6193, name: "Leonardo DiCaprio", character: "Dom Cobb" }],
     crew: [{ name: "Christopher Nolan", job: "Director" }],
   },
 };
@@ -50,7 +50,7 @@ describe("searchTmdb", () => {
     expect(result.year).toBe(2010);
     expect(result.director).toBe("Christopher Nolan");
     expect(result.categories).toEqual(["Movies"]);
-    expect(result.cast).toEqual([{ name: "Leonardo DiCaprio", role: "Dom Cobb" }]);
+    expect(result.cast).toEqual([{ name: "Leonardo DiCaprio", role: "Dom Cobb", tmdbPersonId: 6193 }]);
     expect(result.posterUrl).toBe("https://image.tmdb.org/t/p/w780/poster.jpg");
   });
 
