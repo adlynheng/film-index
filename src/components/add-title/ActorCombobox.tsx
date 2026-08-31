@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useState } from "react";
+import { useListboxNavigation } from "@/hooks/useListboxNavigation";
 import { usePeopleSearch } from "@/hooks/usePeopleSearch";
 import type { PersonSuggestion } from "@/lib/db/people";
 
@@ -31,7 +32,6 @@ interface ActorComboboxProps {
 export function ActorCombobox({ value, onNameChange, onPick, label, placeholder, className }: ActorComboboxProps) {
   const listboxId = useId();
   const [isOpen, setIsOpen] = useState(false);
-  const [activeIndex, setActiveIndex] = useState(-1);
   const { suggestions } = usePeopleSearch(value);
 
   const isListVisible = isOpen && suggestions.length > 0;
@@ -41,6 +41,13 @@ export function ActorCombobox({ value, onNameChange, onPick, label, placeholder,
     setIsOpen(false);
     setActiveIndex(-1);
   }
+
+  const { activeIndex, setActiveIndex, onKeyDown, listRef } = useListboxNavigation({
+    itemCount: suggestions.length,
+    isOpen: isListVisible,
+    onSelect: (index) => choose(suggestions[index]),
+    onDismiss: () => setIsOpen(false),
+  });
 
   return (
     <div className="relative min-w-0">
@@ -55,26 +62,7 @@ export function ActorCombobox({ value, onNameChange, onPick, label, placeholder,
         // Blur closes the list, so an option has to claim the click before the
         // input loses focus — see onMouseDown below.
         onBlur={() => setIsOpen(false)}
-        onKeyDown={(event) => {
-          if (event.key === "Escape") {
-            setIsOpen(false);
-            setActiveIndex(-1);
-            return;
-          }
-          if (!isListVisible) return;
-          if (event.key === "ArrowDown") {
-            event.preventDefault();
-            setActiveIndex((current) => (current + 1) % suggestions.length);
-          } else if (event.key === "ArrowUp") {
-            event.preventDefault();
-            setActiveIndex((current) => (current <= 0 ? suggestions.length - 1 : current - 1));
-          } else if (event.key === "Enter" && activeIndex >= 0) {
-            // Only when an option is highlighted: otherwise Enter belongs to
-            // the dialog, not to the list.
-            event.preventDefault();
-            choose(suggestions[activeIndex]);
-          }
-        }}
+        onKeyDown={onKeyDown}
         placeholder={placeholder}
         aria-label={label}
         role="combobox"
@@ -87,6 +75,7 @@ export function ActorCombobox({ value, onNameChange, onPick, label, placeholder,
 
       {isListVisible ? (
         <ul
+          ref={listRef}
           id={listboxId}
           role="listbox"
           aria-label="People already in the index"

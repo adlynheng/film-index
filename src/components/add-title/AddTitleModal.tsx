@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useId, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CategoryPicker } from "@/components/add-title/CategoryPicker";
 import { EMPTY_DRAFT, type DraftFilm } from "@/components/add-title/draftFilm";
@@ -9,6 +9,7 @@ import { BLANK_CAST_ROWS, ManualDetailsFields } from "@/components/add-title/Man
 import { SearchResultsList } from "@/components/add-title/SearchResultsList";
 import { TitleSearchField } from "@/components/add-title/TitleSearchField";
 import { ImageCropField } from "@/components/shared/ImageCropField";
+import { useListboxNavigation } from "@/hooks/useListboxNavigation";
 import { useTitleSearch } from "@/hooks/useTitleSearch";
 import { saveFilm } from "@/actions/saveFilm";
 import type { TmdbSearchResult } from "@/lib/tmdb/client";
@@ -40,6 +41,9 @@ export function AddTitleModal({ onClose, existingFranchises }: AddTitleModalProp
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [onClose]);
 
+  const resultsListId = useId();
+  const isResultsListOpen = !isPicked && results.length > 0;
+
   const title = (draft.title || query).trim();
   const showNoMatch = !isPicked && !isSearching && hasSearched && !searchError && results.length === 0;
 
@@ -70,6 +74,20 @@ export function AddTitleModal({ onClose, existingFranchises }: AddTitleModalProp
       return true;
     });
   }
+
+  // Arrow keys walk the results; Enter takes the highlighted one. Shared with
+  // the cast and franchise lists so all three answer the same way.
+  const selectResult = useCallback((index: number) => pickResult(results[index]), [results]);
+  const {
+    activeIndex: activeResultIndex,
+    setActiveIndex: setActiveResultIndex,
+    onKeyDown: onSearchKeyDown,
+    listRef: resultsListRef,
+  } = useListboxNavigation({
+    itemCount: isResultsListOpen ? results.length : 0,
+    isOpen: isResultsListOpen,
+    onSelect: selectResult,
+  });
 
   function clearPick() {
     // The design's Clear is "start over", so it wipes the query too — the
@@ -137,10 +155,26 @@ export function AddTitleModal({ onClose, existingFranchises }: AddTitleModalProp
             onQueryChange={(newQuery) => {
               setQuery(newQuery);
               setIsPicked(false);
+              // New results are on their way; whatever was highlighted is
+              // about to mean something else.
+              setActiveResultIndex(-1);
             }}
             isSearching={isSearching}
+            onKeyDown={onSearchKeyDown}
+            isListOpen={isResultsListOpen}
+            listId={resultsListId}
+            activeOptionId={activeResultIndex >= 0 ? `${resultsListId}-${activeResultIndex}` : undefined}
           />
-          {!isPicked ? <SearchResultsList results={results} onPick={pickResult} /> : null}
+          {!isPicked ? (
+            <SearchResultsList
+              results={results}
+              onPick={pickResult}
+              activeIndex={activeResultIndex}
+              onActiveIndexChange={setActiveResultIndex}
+              listRef={resultsListRef}
+              listId={resultsListId}
+            />
+          ) : null}
           {showNoMatch ? (
             <div className="mt-[12px] text-[13px] text-muted">No match — add the details yourself below.</div>
           ) : null}
