@@ -77,7 +77,8 @@ export function ManualDetailsFields({
           <input
             value={director}
             onChange={(event) => onDirectorChange(event.target.value)}
-            placeholder="Director's name"
+            // Comma-separated, which is how the column stores more than one.
+            placeholder="Name, or names separated by commas"
             className={TEXT_FIELD}
           />
         </label>

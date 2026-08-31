@@ -63,11 +63,21 @@ function toCategories(mediaType: "movie" | "tv", genres: { id: number }[]): Film
 }
 
 function toDirector(mediaType: "movie" | "tv", detail: TmdbDetail): string {
-  const creditedDirector = detail.credits?.crew?.find((crewMember) => crewMember.job === "Director")?.name;
-  if (creditedDirector) return creditedDirector;
-  // A series usually has no crew member with job "Director" — the showrunner
-  // is in `created_by`, which is what the index means by a series' director.
-  if (mediaType === "tv") return detail.created_by?.[0]?.name ?? "";
+  // Every credited director, in TMDB's own order: co-directed films are common
+  // enough (the Coens, the Russos, half of animation) that taking the first
+  // name alone quietly mis-credits them. The join is the stored form, which
+  // `formatDirectors` turns into the middle-dot list on screen.
+  const creditedDirectors = (detail.credits?.crew ?? [])
+    .filter((crewMember) => crewMember.job === "Director")
+    .map((crewMember) => crewMember.name);
+  // Deduplicated: TMDB lists a director twice where they are credited in two
+  // departments.
+  const directors = Array.from(new Set(creditedDirectors));
+  if (directors.length > 0) return directors.join(", ");
+
+  // A series usually has no crew member with job "Director" — the showrunners
+  // are in `created_by`, which is what the index means by a series' director.
+  if (mediaType === "tv") return (detail.created_by ?? []).map((creator) => creator.name).join(", ");
   return "";
 }
 

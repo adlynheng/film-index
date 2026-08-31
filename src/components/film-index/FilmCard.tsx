@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { formatDirectors } from "@/lib/films/directors";
 import type { FilmImage } from "@/lib/images/r2";
 import type { FilmSummary } from "@/lib/types";
 
@@ -45,7 +46,7 @@ export function FilmCard({ film, image }: FilmCardProps) {
           <div className="px-[26px] text-center">
             <div className="text-[11px] uppercase tracking-[0.14em] text-overlayLabel">Directed by</div>
             <div className="mt-[10px] text-balance text-[clamp(20px,1.7vw,27px)] font-medium leading-[1.14] tracking-[-0.02em]">
-              {film.director ?? "Director not logged"}
+              {formatDirectors(film.director) || "Director not logged"}
             </div>
           </div>
         </Link>

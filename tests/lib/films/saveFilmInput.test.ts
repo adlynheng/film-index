@@ -28,6 +28,12 @@ describe("normalizeSaveFilmInput", () => {
     expect(() => normalizeSaveFilmInput(input({ title: "" }))).toThrow("Title is required");
   });
 
+  it("stores several directors comma-separated, tidied", () => {
+    expect(normalizeSaveFilmInput(input({ director: "  Joel Coen ,,Ethan Coen  " })).director).toBe(
+      "Joel Coen, Ethan Coen"
+    );
+  });
+
   it("turns an empty director into null rather than an empty string", () => {
     expect(normalizeSaveFilmInput(input({ director: "   " })).director).toBeNull();
   });

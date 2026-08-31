@@ -33,9 +33,6 @@ export function EditableFilmFrame({ filmId, hasFrame, children }: EditableFilmFr
   // Save stays out of reach until something has actually changed, so it can
   // never re-encode and re-upload a still that nobody touched.
   const [isChanged, setIsChanged] = useState(false);
-  // Whether the crop field is holding an image, which the hint below reads —
-  // an empty field says its own piece in the middle of the frame.
-  const [hasFieldImage, setHasFieldImage] = useState(hasFrame);
   const [isSaving, setIsSaving] = useState(false);
   const [isConfirmingRemove, setIsConfirmingRemove] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -61,8 +58,6 @@ export function EditableFilmFrame({ filmId, hasFrame, children }: EditableFilmFr
   async function beginEditing() {
     if (mode !== "view") return;
     setError(null);
-
-    setHasFieldImage(hasFrame);
 
     // Nothing stored yet: the crop field opens empty, and clicking it browses.
     if (!hasFrame) {
@@ -121,10 +116,7 @@ export function EditableFilmFrame({ filmId, hasFrame, children }: EditableFilmFr
           // exactly what the editor showed.
           aspectRatio={null}
           className="absolute inset-0"
-          onFrameChange={(file) => {
-            setIsChanged(true);
-            setHasFieldImage(file !== null);
-          }}
+          onFrameChange={() => setIsChanged(true)}
         />
 
         {/* Marked as part of the crop surface so pressing these buttons is not
@@ -134,6 +126,7 @@ export function EditableFilmFrame({ filmId, hasFrame, children }: EditableFilmFr
           data-crop-surface
           className="absolute bottom-[14px] left-1/2 z-[95] flex -translate-x-1/2 items-center gap-[10px] rounded-full border border-glassBorder bg-glass py-[7px] pl-[16px] pr-[7px] shadow-[0_8px_30px_rgba(17,17,16,0.16),inset_0_1px_0_rgba(255,255,255,0.7)] backdrop-blur-[16px] backdrop-saturate-[1.7]"
         >
+          {error ? <span className="pl-[2px] text-[12.5px] text-mutedStrong">{error}</span> : null}
           <button
             type="button"
             onClick={leaveEditing}
@@ -197,6 +190,8 @@ export function EditableFilmFrame({ filmId, hasFrame, children }: EditableFilmFr
               </button>
             )
           ) : null}
+
+          {error ? <span className="text-[12.5px] text-paper">{error}</span> : null}
         </div>
       </div>
     </>

@@ -1,4 +1,5 @@
 import type { Ref } from "react";
+import { formatDirectors } from "@/lib/films/directors";
 import type { TmdbSearchResult } from "@/lib/tmdb/client";
 
 interface SearchResultsListProps {
@@ -15,7 +16,7 @@ interface SearchResultsListProps {
 // creator, so the parts are joined rather than templated — otherwise the row
 // reads "2010 · " with a dangling separator.
 function buildMetaLabel(result: TmdbSearchResult): string {
-  return [result.year, result.director].filter(Boolean).join("  ·  ");
+  return [result.year, formatDirectors(result.director)].filter(Boolean).join("  ·  ");
 }
 
 export function SearchResultsList({

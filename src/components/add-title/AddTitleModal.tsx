@@ -12,6 +12,7 @@ import { ImageCropField } from "@/components/shared/ImageCropField";
 import { useListboxNavigation } from "@/hooks/useListboxNavigation";
 import { useTitleSearch } from "@/hooks/useTitleSearch";
 import { saveFilm } from "@/actions/saveFilm";
+import { formatDirectors } from "@/lib/films/directors";
 import type { TmdbSearchResult } from "@/lib/tmdb/client";
 import type { FilmCategory } from "@/lib/types";
 
@@ -208,7 +209,7 @@ export function AddTitleModal({ onClose, existingFranchises }: AddTitleModalProp
         {isPicked ? (
           <div className="mt-[18px] flex flex-wrap gap-x-[22px] gap-y-[8px] text-[13px] text-body">
             <span>{draft.year}</span>
-            <span>{draft.director}</span>
+            <span>{formatDirectors(draft.director)}</span>
             <button
               type="button"
               onClick={clearPick}

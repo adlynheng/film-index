@@ -73,6 +73,57 @@ describe("searchTmdb", () => {
     expect(results[0].title).toBe("Inception");
   });
 
+  // A co-directed film keeps both names: `films.director` is comma-separated,
+  // and taking the first crew member alone would credit half the pair.
+  it("keeps every credited director, comma-separated", async () => {
+    vi.stubGlobal(
+      "fetch",
+      stubTmdb({
+        "/search/multi": {
+          results: [{ id: 299534, media_type: "movie", title: "Avengers: Endgame", release_date: "2019-04-24" }],
+        },
+        "/movie/299534": {
+          genres: [{ id: 28 }],
+          poster_path: null,
+          credits: {
+            cast: [],
+            crew: [
+              { name: "Anthony Russo", job: "Director" },
+              { name: "Joe Russo", job: "Director" },
+              { name: "Christopher Markus", job: "Screenplay" },
+              // TMDB lists a director twice where they are also credited in
+              // another department under the same job title.
+              { name: "Anthony Russo", job: "Director" },
+            ],
+          },
+        },
+      })
+    );
+
+    const [result] = await searchTmdb("endgame");
+    expect(result.director).toBe("Anthony Russo, Joe Russo");
+  });
+
+  it("keeps every creator of a series", async () => {
+    vi.stubGlobal(
+      "fetch",
+      stubTmdb({
+        "/search/multi": {
+          results: [{ id: 1396, media_type: "tv", name: "The Bear", first_air_date: "2022-06-23" }],
+        },
+        "/tv/1396": {
+          genres: [{ id: 18 }],
+          poster_path: null,
+          created_by: [{ name: "Christopher Storer" }, { name: "Joanna Calo" }],
+          credits: { cast: [], crew: [] },
+        },
+      })
+    );
+
+    const [result] = await searchTmdb("the bear");
+    expect(result.director).toBe("Christopher Storer, Joanna Calo");
+  });
+
   // TV shows rarely carry a crew member with job "Director" — the showrunner
   // lives in `created_by`. Reading only crew leaves the design's "year · director"
   // meta line rendering as "2022 · " for most series.

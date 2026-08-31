@@ -1,3 +1,4 @@
+import { normalizeDirectors } from "@/lib/films/directors";
 import type { FilmCategory } from "@/lib/types";
 
 /**
@@ -45,7 +46,8 @@ export function normalizeSaveFilmInput(input: SaveFilmInput): NormalizedFilmInpu
 
   const year = normalizeYear(input.year);
 
-  const director = String(input.director ?? "").trim();
+  // Comma-separated, so a film with two directors is still one column value.
+  const director = normalizeDirectors(typeof input.director === "string" ? input.director : "");
 
   const categories = Array.from(
     new Set((Array.isArray(input.categories) ? input.categories : []).filter(isFilmCategory))
@@ -76,7 +78,7 @@ export function normalizeSaveFilmInput(input: SaveFilmInput): NormalizedFilmInpu
   return {
     title,
     year,
-    director: director.length > 0 ? director : null,
+    director,
     // Matches the design's saveDraft, which falls back to ["Movies"].
     categories: categories.length > 0 ? categories : ["Movies"],
     cast,

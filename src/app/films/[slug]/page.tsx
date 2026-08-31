@@ -5,6 +5,7 @@ import { CastList } from "@/components/film-detail/CastList";
 import { FilmHero } from "@/components/film-detail/FilmHero";
 import { isOwnerRequest, OWNER_COOKIE_NAME } from "@/lib/auth/ownerSession";
 import { getFilmBySlug } from "@/lib/db/films";
+import { formatDirectors } from "@/lib/films/directors";
 import { buildFilmImage } from "@/lib/images/r2";
 
 interface FilmDetailPageProps {
@@ -49,7 +50,7 @@ export default async function FilmDetailPage({ params }: FilmDetailPageProps) {
           <div>
             <dt className="text-[12px] uppercase tracking-[0.12em] text-muted">Directed by</dt>
             <dd className="mt-[8px] text-[clamp(17px,1.4vw,21px)] font-medium tracking-[-0.02em]">
-              {film.director ?? "Director not logged"}
+              {formatDirectors(film.director) || "Director not logged"}
             </dd>
           </div>
           <div>
