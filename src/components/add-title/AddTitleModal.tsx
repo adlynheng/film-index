@@ -3,8 +3,10 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CategoryPicker } from "@/components/add-title/CategoryPicker";
+import { EMPTY_DRAFT, type DraftFilm } from "@/components/add-title/draftFilm";
 import { FranchisePicker } from "@/components/add-title/FranchisePicker";
 import { FrameUploadField } from "@/components/add-title/FrameUploadField";
+import { BLANK_CAST_ROWS, ManualDetailsFields } from "@/components/add-title/ManualDetailsFields";
 import { SearchResultsList } from "@/components/add-title/SearchResultsList";
 import { TitleSearchField } from "@/components/add-title/TitleSearchField";
 import { useTitleSearch } from "@/hooks/useTitleSearch";
@@ -17,31 +19,12 @@ interface AddTitleModalProps {
   existingFranchises: string[];
 }
 
-interface DraftFilm {
-  title: string;
-  year: number | null;
-  director: string;
-  categories: FilmCategory[];
-  cast: TmdbSearchResult["cast"];
-  franchiseName: string | null;
-}
-
-// Matches the design's emptyDraft, which starts on "Movies" rather than on no
-// category at all — the same fallback saveFilmInput applies server-side.
-const EMPTY_DRAFT: DraftFilm = {
-  title: "",
-  year: null,
-  director: "",
-  categories: ["Movies"],
-  cast: [],
-  franchiseName: null,
-};
-
 export function AddTitleModal({ onClose, existingFranchises }: AddTitleModalProps) {
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [draft, setDraft] = useState<DraftFilm>(EMPTY_DRAFT);
   const [isPicked, setIsPicked] = useState(false);
+  const [isManualOpen, setIsManualOpen] = useState(false);
   const [frameImageFile, setFrameImageFile] = useState<File | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -71,6 +54,21 @@ export function AddTitleModal({ onClose, existingFranchises }: AddTitleModalProp
     }));
     setQuery(result.title);
     setIsPicked(true);
+  }
+
+  // Opening the section carries the typed query over as the title and lays out
+  // the empty cast rows, as the design does — so it starts from whatever has
+  // been entered rather than from nothing.
+  function toggleManual() {
+    setIsManualOpen((current) => {
+      if (current) return false;
+      setDraft((draft) => ({
+        ...draft,
+        title: draft.title || query,
+        cast: draft.cast.length > 0 ? draft.cast : BLANK_CAST_ROWS,
+      }));
+      return true;
+    });
   }
 
   function clearPick() {
@@ -144,12 +142,34 @@ export function AddTitleModal({ onClose, existingFranchises }: AddTitleModalProp
           />
           {!isPicked ? <SearchResultsList results={results} onPick={pickResult} /> : null}
           {showNoMatch ? (
-            <div className="mt-[12px] text-[13px] text-muted">
-              No match — keep the typed title and fill the rest in yourself.
-            </div>
+            <div className="mt-[12px] text-[13px] text-muted">No match — add the details yourself below.</div>
           ) : null}
           {searchError ? <div className="mt-[12px] text-[13px] text-muted">{searchError}</div> : null}
         </div>
+
+        <div className="mt-[14px] flex justify-end">
+          <button
+            type="button"
+            onClick={toggleManual}
+            aria-expanded={isManualOpen}
+            className="cursor-pointer border-b border-borderStrong bg-transparent p-0 text-[13px] text-body hover:border-ink hover:text-ink"
+          >
+            {isManualOpen ? "Hide manual details" : "Can't find it? Enter details manually"}
+          </button>
+        </div>
+
+        {isManualOpen ? (
+          <ManualDetailsFields
+            title={draft.title}
+            year={draft.year}
+            director={draft.director}
+            cast={draft.cast}
+            onTitleChange={(newTitle) => setDraft((current) => ({ ...current, title: newTitle }))}
+            onYearChange={(year) => setDraft((current) => ({ ...current, year }))}
+            onDirectorChange={(director) => setDraft((current) => ({ ...current, director }))}
+            onCastChange={(cast) => setDraft((current) => ({ ...current, cast }))}
+          />
+        ) : null}
 
         {isPicked ? (
           <div className="mt-[18px] flex flex-wrap gap-x-[22px] gap-y-[8px] text-[13px] text-body">
@@ -167,7 +187,7 @@ export function AddTitleModal({ onClose, existingFranchises }: AddTitleModalProp
 
         <div className="mt-[26px]">
           <div className="text-[12px] uppercase tracking-[0.09em] text-muted">Frame</div>
-          <FrameUploadField onFileSelected={setFrameImageFile} />
+          <FrameUploadField onFrameChange={setFrameImageFile} />
         </div>
 
         <fieldset className="mt-[26px] border-none p-0">

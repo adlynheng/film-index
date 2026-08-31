@@ -1,11 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import useSWR from "swr";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import type { TmdbSearchResult } from "@/lib/tmdb/client";
 
-// Matches the prototype's runSearch debounce in My Film Index.dc.html.
-const DEBOUNCE_DELAY_MS = 180;
 const MIN_QUERY_LENGTH = 2;
 
 interface SearchResponse {
@@ -30,12 +28,7 @@ export interface TitleSearch {
 }
 
 export function useTitleSearch(query: string): TitleSearch {
-  const [debouncedQuery, setDebouncedQuery] = useState(query);
-
-  useEffect(() => {
-    const timeoutId = setTimeout(() => setDebouncedQuery(query), DEBOUNCE_DELAY_MS);
-    return () => clearTimeout(timeoutId);
-  }, [query]);
+  const debouncedQuery = useDebouncedValue(query);
 
   const shouldSearch = debouncedQuery.trim().length >= MIN_QUERY_LENGTH;
   const { data, isLoading } = useSWR<SearchResponse>(

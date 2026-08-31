@@ -47,7 +47,7 @@ export function FranchisePicker({ value, onChange, existingFranchises }: Franchi
             title="Choose an existing franchise"
             // Tailwind v4's rotate-* sets the CSS `rotate` property rather than
             // `transform`, so the transition has to name `rotate` to animate.
-            className={`flex h-[26px] w-[30px] cursor-pointer items-center justify-center border-l border-border bg-transparent text-[11px] text-mutedStrong transition-[rotate,color] duration-[140ms] hover:text-ink ${
+            className={`flex h-[26px] w-[30px] cursor-pointer items-center justify-center bg-transparent text-[11px] text-mutedStrong transition-[rotate,color] duration-[140ms] hover:text-ink ${
               isOpen ? "rotate-180" : ""
             }`}
           >
