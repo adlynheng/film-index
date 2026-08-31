@@ -5,10 +5,10 @@ import { useRouter } from "next/navigation";
 import { CategoryPicker } from "@/components/add-title/CategoryPicker";
 import { EMPTY_DRAFT, type DraftFilm } from "@/components/add-title/draftFilm";
 import { FranchisePicker } from "@/components/add-title/FranchisePicker";
-import { FrameUploadField } from "@/components/add-title/FrameUploadField";
 import { BLANK_CAST_ROWS, ManualDetailsFields } from "@/components/add-title/ManualDetailsFields";
 import { SearchResultsList } from "@/components/add-title/SearchResultsList";
 import { TitleSearchField } from "@/components/add-title/TitleSearchField";
+import { ImageCropField } from "@/components/shared/ImageCropField";
 import { useTitleSearch } from "@/hooks/useTitleSearch";
 import { saveFilm } from "@/actions/saveFilm";
 import type { TmdbSearchResult } from "@/lib/tmdb/client";
@@ -187,7 +187,7 @@ export function AddTitleModal({ onClose, existingFranchises }: AddTitleModalProp
 
         <div className="mt-[26px]">
           <div className="text-[12px] uppercase tracking-[0.09em] text-muted">Frame</div>
-          <FrameUploadField onFrameChange={setFrameImageFile} />
+          <ImageCropField onFrameChange={setFrameImageFile} aspectRatio={16 / 9} />
         </div>
 
         <fieldset className="mt-[26px] border-none p-0">
