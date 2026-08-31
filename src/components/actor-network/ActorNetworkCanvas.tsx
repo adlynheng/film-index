@@ -153,6 +153,10 @@ export function ActorNetworkCanvas({ graph }: ActorNetworkCanvasProps) {
   const focusedNeighborIds = focusedNodeId ? neighborsByNodeId.get(focusedNodeId) : undefined;
   const isDimmed = focusedNodeId !== null || matchingNodeIds.length > 0;
 
+  // Set rather than the array above: this is consulted once per node and once
+  // per label on every render.
+  const matchedNodeIds = useMemo(() => new Set(matchingNodeIds), [matchingNodeIds]);
+
   const activeNodeIds = useMemo(() => {
     const ids = new Set<string>(matchingNodeIds);
     if (focusedNodeId) {
@@ -167,7 +171,7 @@ export function ActorNetworkCanvas({ graph }: ActorNetworkCanvasProps) {
   const focusedNode = focusedNodeId ? graph.nodes.find((node) => node.id === focusedNodeId) ?? null : null;
 
   const labelledNodes = graph.nodes.filter((node) => {
-    if (node.id === focusedNodeId || focusedNeighborIds?.has(node.id) || matchingNodeIds.includes(node.id)) return true;
+    if (node.id === focusedNodeId || focusedNeighborIds?.has(node.id) || matchedNodeIds.has(node.id)) return true;
     if (focusedNodeId) return false;
     return view.k >= LABEL_SCALE_THRESHOLD || node.degree >= LABEL_DEGREE_THRESHOLD;
   });
@@ -250,12 +254,20 @@ export function ActorNetworkCanvas({ graph }: ActorNetworkCanvasProps) {
                 <circle r={Math.max(14, radius + 8)} fill="transparent" />
                 <circle
                   r={radius}
+                  // A search hit outranks the focus fill: with one match the
+                  // node is both, and "the actor you searched for" is the more
+                  // useful thing for the colour to be saying. The paler blue
+                  // says "still more than one of these".
                   fill={
-                    focusedNodeId === node.id
-                      ? "var(--color-ink)"
-                      : isNodeActive(node.id)
-                        ? "var(--color-nodeActive)"
-                        : "var(--color-nodeInactive)"
+                    matchedNodeIds.has(node.id)
+                      ? matchedNodeIds.size === 1
+                        ? "var(--color-nodeMatch)"
+                        : "var(--color-nodeMatchCandidate)"
+                      : focusedNodeId === node.id
+                        ? "var(--color-ink)"
+                        : isNodeActive(node.id)
+                          ? "var(--color-nodeActive)"
+                          : "var(--color-nodeInactive)"
                   }
                   stroke="var(--color-network)"
                   strokeWidth={1.5}

@@ -62,6 +62,11 @@
   --color-network: #efefed;
   --color-networkBorder: #d6d6d0;
   --color-nodeActive: #4a4a44;
+  /* The one colour in the palette, and it carries the search's progress: every
+     candidate while the query still matches several actors, then the full blue
+     once it has narrowed to one. */
+  --color-nodeMatchCandidate: #4A4A44;
+  --color-nodeMatch: #70A0FF;
   --color-nodeInactive: #cfcfc8;
   --color-labelBody: #3a3a36;
   --color-labelFaint: #b4b4ac;
