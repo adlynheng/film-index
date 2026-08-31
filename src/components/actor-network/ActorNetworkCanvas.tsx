@@ -192,7 +192,7 @@ export function ActorNetworkCanvas({ graph }: ActorNetworkCanvasProps) {
             with whom
           </h1>
           <p className="mt-[18px] max-w-[360px] text-pretty text-[15px] leading-[1.45] text-body">
-            Every actor in the index, linked when they share a film. Scroll to zoom, drag to move, search to find
+          Every actor in the index - each link represents a film or series they have worked in together. Scroll to zoom, drag to move, search to find
             someone.
           </p>
         </div>
