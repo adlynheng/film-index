@@ -189,7 +189,12 @@ export function ActorNetworkCanvas({ graph }: ActorNetworkCanvasProps) {
             <span className="text-[15px] leading-none">←</span> My Film Index
           </Link>
         </nav>
-        <div className="bg-network pb-[12px] pr-[14px] pt-[2px]">
+        {/* The floating "+" button's glass, minus its border: nodes and edges
+            pass under this panel, and frosting them keeps the heading legible
+            without hiding the graph behind an opaque block. The negative
+            margins let the card bleed past the text so it reads as a surface,
+            while the text itself stays aligned with the nav link above. */}
+        <div className="-mx-[18px] rounded-[4px] px-[18px] pb-[18px] pt-[14px] backdrop-blur-[16px] backdrop-saturate-[1.7]">
           <h1 className="text-[clamp(38px,5.4vw,74px)] font-medium leading-[0.9] tracking-[-0.04em]">
             Who has worked
             <br />
