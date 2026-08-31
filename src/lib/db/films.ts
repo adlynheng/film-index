@@ -84,6 +84,30 @@ export async function filmSlugExists(candidateSlug: string): Promise<boolean> {
   return row.exists;
 }
 
+// Postgres types `films.id` as uuid, so a malformed id raises a query error
+// rather than simply missing. The frame editor takes its id from an untrusted
+// request, so the lookup below turns a bad one into "no such film".
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export interface FilmFrameRef {
+  slug: string;
+  posterKey: string | null;
+}
+
+/** Just enough of a film to re-point its frame: the key to clean up, and the path to revalidate. */
+export async function getFilmFrameRef(filmId: string): Promise<FilmFrameRef | null> {
+  if (!UUID_PATTERN.test(filmId)) return null;
+  const [row] = await sql<{ slug: string; poster_key: string | null }[]>`
+    select slug, poster_key from films where id = ${filmId} limit 1
+  `;
+  return row ? { slug: row.slug, posterKey: row.poster_key } : null;
+}
+
+/** Callers reach a film through `getFilmFrameRef` first, so the id is already known-good here. */
+export async function updateFilmPosterKey(filmId: string, posterKey: string | null): Promise<void> {
+  await sql`update films set poster_key = ${posterKey} where id = ${filmId}`;
+}
+
 export interface InsertFilmParams {
   id: string;
   slug: string;

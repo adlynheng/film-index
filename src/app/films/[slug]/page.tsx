@@ -1,7 +1,9 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
 import { CastList } from "@/components/film-detail/CastList";
 import { FilmHero } from "@/components/film-detail/FilmHero";
+import { isOwnerRequest, OWNER_COOKIE_NAME } from "@/lib/auth/ownerSession";
 import { getFilmBySlug } from "@/lib/db/films";
 import { buildFilmImage } from "@/lib/images/r2";
 
@@ -11,8 +13,11 @@ interface FilmDetailPageProps {
 
 export default async function FilmDetailPage({ params }: FilmDetailPageProps) {
   const { slug } = await params;
-  const film = await getFilmBySlug(slug);
+  // Reading the cookie opts this route into dynamic rendering, as on the index:
+  // the frame's editing controls are the owner's alone.
+  const [cookieStore, film] = await Promise.all([cookies(), getFilmBySlug(slug)]);
   if (!film) notFound();
+  const isOwner = isOwnerRequest(cookieStore.get(OWNER_COOKIE_NAME)?.value);
 
   // "Filed under" carries the franchise alongside the categories, as in the design.
   const filedUnder = [...film.categories, ...(film.franchiseName ? [film.franchiseName] : [])].join(", ");
@@ -31,9 +36,11 @@ export default async function FilmDetailPage({ params }: FilmDetailPageProps) {
 
       <main className="mt-[clamp(12px,1.4vh,24px)] grid grid-cols-[minmax(0,1fr)] gap-x-[52px] pb-[36px] md:min-h-0 md:flex-1 md:grid-cols-[minmax(0,1fr)_minmax(260px,25%)] md:grid-rows-[auto_minmax(0,1fr)_auto] md:pb-0">
         <FilmHero
+          filmId={film.id}
           title={film.title}
           yearLabel={film.year ? `(${film.year})` : ""}
           image={buildFilmImage(film.posterKey)}
+          isOwner={isOwner}
         />
 
         {/* Column 1's full width, which is what the still is now sized against:

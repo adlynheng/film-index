@@ -1,6 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+  type Ref,
+} from "react";
 import { createPortal } from "react-dom";
 import { Trash2 } from "lucide-react";
 
@@ -45,16 +53,32 @@ interface Rect {
   height: number;
 }
 
+export interface ImageCropFieldHandle {
+  /** The framing as it stands, for a caller that saves on its own schedule. Null while the field is empty. */
+  exportFrame: () => Promise<File | null>;
+}
+
 interface ImageCropFieldProps {
   /** Reported whenever the framing settles: the original file until it is reframed, the rendered crop after. */
   onFrameChange: (file: File | null) => void;
-  /** Frame shape. 16:9 by default, matching the film frames this index stores. */
-  aspectRatio?: number;
+  /** Frame shape. 16:9 by default, matching the film frames this index stores. Null lets the caller's box decide. */
+  aspectRatio?: number | null;
   /** Sizing for the frame. Anything goes — the geometry is measured, not assumed. */
   className?: string;
   placeholder?: string;
   /** Cap on the exported crop's width. Never upscales past the source. */
   exportMaxWidth?: number;
+  /**
+   * An image the field starts out holding — a frame already stored for a film,
+   * say. Read once, at mount, and deliberately not reported through
+   * `onFrameChange`: nothing has changed yet.
+   */
+  initialFile?: File | null;
+  /** Open straight into the reframe, where the caller's own UI was the "edit" affordance. */
+  startInReframe?: boolean;
+  /** The dashed border and the caption row under the frame. Off where the caller supplies its own chrome. */
+  showChrome?: boolean;
+  ref?: Ref<ImageCropFieldHandle>;
 }
 
 const clampScale = (scale: number) => Math.max(MIN_SCALE, Math.min(MAX_SCALE, scale));
@@ -65,19 +89,27 @@ export function ImageCropField({
   className = "w-full",
   placeholder = "Drop a frame, or click to browse",
   exportMaxWidth = MAX_EXPORT_WIDTH,
+  initialFile = null,
+  startInReframe = false,
+  showChrome = true,
+  ref,
 }: ImageCropFieldProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const frameRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
   const dragRef = useRef<((event: { clientX: number; clientY: number }) => void) | null>(null);
 
-  const [originalFile, setOriginalFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  // Seeded at mount rather than in an effect, so an initial file needs no
+  // second render and no state write outside an event.
+  const [originalFile, setOriginalFile] = useState<File | null>(initialFile);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(() =>
+    initialFile ? URL.createObjectURL(initialFile) : null
+  );
   const [natural, setNatural] = useState<{ width: number; height: number } | null>(null);
   const [frame, setFrame] = useState({ width: 0, height: 0 });
   const [frameRect, setFrameRect] = useState<Rect | null>(null);
   const [view, setView] = useState<View>({ s: 1, x: 0, y: 0 });
-  const [isReframing, setIsReframing] = useState(false);
+  const [isReframing, setIsReframing] = useState(Boolean(initialFile) && startInReframe);
   const [isPanning, setIsPanning] = useState(false);
 
   // An object URL pins its blob in memory until it is revoked, and picking a
@@ -153,10 +185,10 @@ export function ImageCropField({
     [frame.height, frame.width, natural]
   );
 
-  /** Renders the framed region to a canvas and reports it as the file to upload. */
-  const commitCrop = useCallback(() => {
+  /** Renders the framed region to a canvas and hands back the file to upload. */
+  const renderCrop = useCallback(async (): Promise<File | null> => {
     const image = imageRef.current;
-    if (!image || !geometry || !originalFile) return;
+    if (!image || !geometry || !originalFile) return null;
 
     const sourceWidth = frame.width / geometry.scale;
     const sourceHeight = frame.height / geometry.scale;
@@ -172,28 +204,48 @@ export function ImageCropField({
     canvas.width = width;
     canvas.height = height;
     const context = canvas.getContext("2d");
-    if (!context) return;
+    if (!context) return null;
     context.imageSmoothingQuality = "high";
     context.drawImage(image, sourceX, sourceY, sourceWidth, sourceHeight, 0, 0, width, height);
 
-    canvas.toBlob(
-      (blob) => {
-        if (!blob) return;
-        onFrameChange(new File([blob], `${originalFile.name.replace(/\.[^.]+$/, "")}-crop.webp`, { type: blob.type }));
-      },
-      "image/webp",
-      EXPORT_QUALITY
+    const blob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob(resolve, "image/webp", EXPORT_QUALITY)
     );
-  }, [exportMaxWidth, frame.height, frame.width, geometry, onFrameChange, originalFile]);
+    if (!blob) return null;
+    return new File([blob], `${originalFile.name.replace(/\.[^.]+$/, "")}-crop.webp`, { type: blob.type });
+  }, [exportMaxWidth, frame.height, frame.width, geometry, originalFile]);
+
+  // Set the first time a framing is actually reported, so an untouched view
+  // can be told from one that was moved and put back.
+  const hasCommittedRef = useRef(false);
+
+  const commitCrop = useCallback(() => {
+    // A view nobody has moved still describes the file that came in.
+    // Committing it would re-encode identical pixels and — for a caller
+    // watching this callback — claim a change that never happened.
+    if (view.s === 1 && view.x === 0 && view.y === 0 && !hasCommittedRef.current) return;
+    hasCommittedRef.current = true;
+    void renderCrop().then((file) => {
+      if (file) onFrameChange(file);
+    });
+  }, [onFrameChange, renderCrop, view.s, view.x, view.y]);
 
   // commitCrop closes over the geometry, so it is a new function on every
   // render; the debounce below must not depend on it. Reporting a crop sets
   // state in the parent, which re-renders this field — a commitCrop
   // dependency would make that re-render schedule another commit, forever.
   const commitCropRef = useRef(commitCrop);
+  const renderCropRef = useRef(renderCrop);
   useEffect(() => {
     commitCropRef.current = commitCrop;
-  }, [commitCrop]);
+    renderCropRef.current = renderCrop;
+  }, [commitCrop, renderCrop]);
+
+  // Reading the crop through a ref rather than waiting on the debounce below:
+  // a caller with its own Save button must get the framing that is on screen
+  // at the moment it is pressed, not the one the last settle happened to
+  // report.
+  useImperativeHandle(ref, () => ({ exportFrame: () => renderCropRef.current() }), []);
 
   // One encode after the gesture settles rather than one per frame, so the
   // parent always holds the framing that is on screen even if the dialog is
@@ -264,6 +316,7 @@ export function ImageCropField({
   }, [clampView, isReframing, frameRect]);
 
   function loadFile(file: File) {
+    hasCommittedRef.current = false;
     setOriginalFile(file);
     setPreviewUrl(URL.createObjectURL(file));
     setNatural(null);
@@ -275,6 +328,7 @@ export function ImageCropField({
   }
 
   function removeFrame() {
+    hasCommittedRef.current = false;
     setOriginalFile(null);
     setPreviewUrl(null);
     setNatural(null);
@@ -365,7 +419,7 @@ export function ImageCropField({
     : { position: "absolute" as const, inset: 0, width: "100%", height: "100%", objectFit: "cover" as const };
 
   return (
-    <div data-crop-surface className="mt-[10px]">
+    <div data-crop-surface className={showChrome ? "mt-[10px]" : ""}>
       <input
         ref={inputRef}
         type="file"
@@ -379,7 +433,7 @@ export function ImageCropField({
 
       <div
         ref={frameRef}
-        style={{ aspectRatio }}
+        style={aspectRatio ? { aspectRatio } : undefined}
         onDragOver={(event) => event.preventDefault()}
         onDrop={(event) => {
           event.preventDefault();
@@ -396,9 +450,11 @@ export function ImageCropField({
         onDoubleClick={() => {
           if (previewUrl && isReframing) exitReframe();
         }}
-        className={`group relative cursor-pointer overflow-hidden border border-dashed border-borderDashed bg-tile ${className} ${
-          isReframing ? "shadow-[0_0_0_2px_var(--color-ink)]" : ""
-        }`}
+        // Without the chrome the caller positions this box itself, so it
+        // supplies the positioning class too — `relative` here would fight it.
+        className={`group cursor-pointer overflow-hidden bg-tile ${
+          showChrome ? "relative border border-dashed border-borderDashed" : ""
+        } ${className} ${isReframing ? "shadow-[0_0_0_2px_var(--color-ink)]" : ""}`}
       >
         {previewUrl ? (
           // eslint-disable-next-line @next/next/no-img-element -- local object URL, not an R2 asset
@@ -501,34 +557,28 @@ export function ImageCropField({
           )
         : null}
 
-      <div className="mt-[10px] flex flex-wrap items-center justify-between gap-[10px]">
-        <span className="text-[12.5px] text-muted">
-          {isReframing
-            ? "Drag to reposition, scroll or pull a corner to resize."
-            : previewUrl
-              ? "Click the frame to reposition or resize it."
-              : "Drop a still here, or click to browse."}
-        </span>
-
-        {isReframing ? (
-          <div className="flex flex-wrap items-center gap-[10px]">
-            <button
-              type="button"
-              onClick={() => setView({ s: 1, x: 0, y: 0 })}
-              className="cursor-pointer border border-borderStrong bg-transparent px-[14px] py-[8px] font-sans text-[13px] text-ink hover:border-ink"
-            >
-              Reset
-            </button>
-            <button
-              type="button"
-              onClick={exitReframe}
-              className="cursor-pointer rounded-full bg-ink px-[18px] py-[8px] font-sans text-[13px] text-paper"
-            >
-              Done
-            </button>
-          </div>
-        ) : null}
-      </div>
+      {showChrome ? (
+        <div className="mt-[10px] flex flex-wrap items-center justify-between gap-[10px]">
+          {isReframing ? (
+            <div className="flex flex-wrap items-center gap-[10px]">
+              <button
+                type="button"
+                onClick={() => setView({ s: 1, x: 0, y: 0 })}
+                className="cursor-pointer border border-borderStrong bg-transparent px-[14px] py-[8px] font-sans text-[13px] text-ink hover:border-ink"
+              >
+                Reset
+              </button>
+              <button
+                type="button"
+                onClick={exitReframe}
+                className="cursor-pointer rounded-full bg-ink px-[18px] py-[8px] font-sans text-[13px] text-paper"
+              >
+                Done
+              </button>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }

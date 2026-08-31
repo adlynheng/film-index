@@ -1,4 +1,4 @@
-import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { DeleteObjectsCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { FRAME_WIDTHS, type FrameWidth } from "@/lib/images/frameWidths";
 
 const CACHE_CONTROL_ONE_YEAR_IMMUTABLE = "public, max-age=31536000, immutable";
@@ -47,6 +47,21 @@ export async function uploadFilmFrame(baseKey: string, width: FrameWidth, buffer
       Body: buffer,
       ContentType: "image/webp",
       CacheControl: CACHE_CONTROL_ONE_YEAR_IMMUTABLE,
+    })
+  );
+}
+
+/**
+ * Every rung of one frame, removed together. Called only after the row that
+ * pointed at them has been moved elsewhere, so a failure here leaves orphaned
+ * objects rather than a film pointing at frames that no longer exist.
+ */
+export async function deleteFilmFrames(baseKey: string): Promise<void> {
+  const r2Client = getR2Client();
+  await r2Client.send(
+    new DeleteObjectsCommand({
+      Bucket: requireEnv("R2_BUCKET_NAME"),
+      Delete: { Objects: FRAME_WIDTHS.map((width) => ({ Key: buildObjectKey(baseKey, width) })) },
     })
   );
 }

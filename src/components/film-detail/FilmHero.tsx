@@ -1,15 +1,33 @@
+import { EditableFilmFrame } from "@/components/film-detail/EditableFilmFrame";
 import type { FilmImage } from "@/lib/images/r2";
 
 // Returns two grid children rather than one wrapper: the design places the
 // title in row 1 and the still in row 2 of the detail grid, so that the cast
 // panel in column 2 can centre itself against the still alone.
 interface FilmHeroProps {
+  filmId: string;
   title: string;
   yearLabel: string;
   image: FilmImage | null;
+  /** The owner gets the frame's editing controls laid over it; everyone else gets the still alone. */
+  isOwner: boolean;
 }
 
-export function FilmHero({ title, yearLabel, image }: FilmHeroProps) {
+export function FilmHero({ filmId, title, yearLabel, image, isOwner }: FilmHeroProps) {
+  const still = image ? (
+    // eslint-disable-next-line @next/next/no-img-element -- pre-sized/pre-cached R2 asset, see spec §6
+    <img
+      src={image.src}
+      srcSet={image.srcSet}
+      // Cover-adjusted, as in FilmCard: the still's box is ~968px at a
+      // 1440 viewport (67vw), and a 2.40:1 frame renders ~1.35x wider.
+      sizes="(min-width: 768px) 90vw, 100vw"
+      alt={title}
+      className="h-full w-full object-cover"
+    />
+  ) : null;
+
+
   return (
     <>
       <div className="col-start-1 row-start-1 mt-[26px] md:mt-[clamp(14px,3.4vh,52px)]">
@@ -29,18 +47,13 @@ export function FilmHero({ title, yearLabel, image }: FilmHeroProps) {
             source is a 2.40:1 scope still, a box shorter than 16:9 simply crops
             less of its width. */}
         <div className="relative aspect-video max-h-full w-full bg-tile">
-          {image ? (
-            // eslint-disable-next-line @next/next/no-img-element -- pre-sized/pre-cached R2 asset, see spec §6
-            <img
-              src={image.src}
-              srcSet={image.srcSet}
-              // Cover-adjusted, as in FilmCard: the still's box is ~968px at a
-              // 1440 viewport (67vw), and a 2.40:1 frame renders ~1.35x wider.
-              sizes="(min-width: 768px) 90vw, 100vw"
-              alt={title}
-              className="h-full w-full object-cover"
-            />
-          ) : null}
+          {isOwner ? (
+            <EditableFilmFrame filmId={filmId} hasFrame={image !== null}>
+              {still}
+            </EditableFilmFrame>
+          ) : (
+            still
+          )}
         </div>
       </div>
     </>
