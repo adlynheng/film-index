@@ -20,8 +20,9 @@ export default async function FilmDetailPage({ params }: FilmDetailPageProps) {
   if (!film) notFound();
   const isOwner = isOwnerRequest(cookieStore.get(OWNER_COOKIE_NAME)?.value);
 
-  // "Filed under" carries the franchise alongside the categories, as in the design.
-  const filedUnder = [...film.categories, ...(film.franchiseName ? [film.franchiseName] : [])].join(", ");
+  // "Filed under" carries the groupings alongside the categories, as in the
+  // design — the franchise first, then the studio.
+  const filedUnder = [...film.categories, film.franchiseName, film.studioName].filter(Boolean).join(", ");
 
   return (
     // From md up the page is exactly one viewport tall and never scrolls: the

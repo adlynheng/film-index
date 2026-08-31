@@ -10,6 +10,7 @@ interface FilmRow {
   director: string | null;
   poster_key: string | null;
   franchise_id: string | null;
+  studio_id: string | null;
 }
 
 async function attachCategories(films: FilmRow[]): Promise<Map<string, FilmCategory[]>> {
@@ -37,6 +38,7 @@ function toFilmSummary(row: FilmRow, categories: FilmCategory[]): FilmSummary {
     posterKey: row.poster_key,
     categories,
     franchiseId: row.franchise_id,
+    studioId: row.studio_id,
   };
 }
 
@@ -47,10 +49,11 @@ export async function listFilms(): Promise<FilmSummary[]> {
 }
 
 export async function getFilmBySlug(slug: string): Promise<FilmDetail | null> {
-  const [row] = await sql<(FilmRow & { franchise_name: string | null })[]>`
-    select f.*, fr.name as franchise_name
+  const [row] = await sql<(FilmRow & { franchise_name: string | null; studio_name: string | null })[]>`
+    select f.*, fr.name as franchise_name, st.name as studio_name
     from films f
     left join franchises fr on fr.id = f.franchise_id
+    left join studios st on st.id = f.studio_id
     where f.slug = ${slug}
     limit 1
   `;
@@ -74,6 +77,7 @@ export async function getFilmBySlug(slug: string): Promise<FilmDetail | null> {
     ...toFilmSummary(row, categoriesByFilmId.get(row.id) ?? []),
     cast,
     franchiseName: row.franchise_name,
+    studioName: row.studio_name,
   };
 }
 
@@ -115,39 +119,23 @@ export interface InsertFilmParams {
   year: number | null;
   director: string | null;
   posterKey: string | null;
-  // A name, not an id: the design's franchise control is a combobox, so the
-  // caller may name one that does not exist yet. Resolved or created inside
-  // the transaction below.
+  // Names, not ids: both grouping controls are comboboxes, so the caller may
+  // name one that does not exist yet. Resolved or created inside the
+  // transaction below.
   franchiseName: string | null;
+  studioName: string | null;
   categories: FilmCategory[];
   cast: { personName: string; role: string; tmdbPersonId: number | null }[];
 }
 
 export async function insertFilm(params: InsertFilmParams): Promise<void> {
   await sql.begin(async (transaction) => {
-    let franchiseId: string | null = null;
-    if (params.franchiseName) {
-      // Matched case-insensitively so typing "alien" does not create a second
-      // franchise alongside "Alien". The unique index on name is case
-      // sensitive, so it would happily allow the duplicate.
-      const [existingFranchise] = await transaction<{ id: string }[]>`
-        select id from franchises where lower(name) = lower(${params.franchiseName}) limit 1
-      `;
-      if (existingFranchise) {
-        franchiseId = existingFranchise.id;
-      } else {
-        const [createdFranchise] = await transaction<{ id: string }[]>`
-          insert into franchises (name) values (${params.franchiseName})
-          on conflict (name) do update set name = excluded.name
-          returning id
-        `;
-        franchiseId = createdFranchise.id;
-      }
-    }
+    const franchiseId = await resolveGroupId(transaction, "franchises", params.franchiseName);
+    const studioId = await resolveGroupId(transaction, "studios", params.studioName);
 
     await transaction`
-      insert into films (id, slug, title, year, director, poster_key, franchise_id)
-      values (${params.id}, ${params.slug}, ${params.title}, ${params.year}, ${params.director}, ${params.posterKey}, ${franchiseId})
+      insert into films (id, slug, title, year, director, poster_key, franchise_id, studio_id)
+      values (${params.id}, ${params.slug}, ${params.title}, ${params.year}, ${params.director}, ${params.posterKey}, ${franchiseId}, ${studioId})
     `;
 
     for (const category of params.categories) {
@@ -164,6 +152,36 @@ export async function insertFilm(params: InsertFilmParams): Promise<void> {
       `;
     }
   });
+}
+
+/**
+ * Finds or creates the row a grouping name refers to — a franchise or a
+ * studio, which are the same shape in the schema and resolved the same way.
+ *
+ * The table name is a literal from this module, never caller input, so the
+ * identifier interpolation carries no injection risk.
+ */
+async function resolveGroupId(
+  transaction: TransactionSql,
+  table: "franchises" | "studios",
+  name: string | null
+): Promise<string | null> {
+  if (!name) return null;
+
+  // Matched case-insensitively so typing "alien" does not create a second
+  // franchise alongside "Alien". The unique index on name is case sensitive,
+  // so it would happily allow the duplicate.
+  const [existing] = await transaction<{ id: string }[]>`
+    select id from ${transaction(table)} where lower(name) = lower(${name}) limit 1
+  `;
+  if (existing) return existing.id;
+
+  const [created] = await transaction<{ id: string }[]>`
+    insert into ${transaction(table)} (name) values (${name})
+    on conflict (name) do update set name = excluded.name
+    returning id
+  `;
+  return created.id;
 }
 
 /**

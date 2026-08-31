@@ -22,6 +22,7 @@ export interface SaveFilmInput {
   categories: FilmCategory[];
   cast: { name: string; role: string; tmdbPersonId?: number | null }[];
   franchiseName: string | null;
+  studioName: string | null;
   frameImageBytes: ArrayBuffer | null;
 }
 
@@ -32,6 +33,7 @@ export interface NormalizedFilmInput {
   categories: FilmCategory[];
   cast: { personName: string; role: string; tmdbPersonId: number | null }[];
   franchiseName: string | null;
+  studioName: string | null;
 }
 
 /**
@@ -74,6 +76,7 @@ export function normalizeSaveFilmInput(input: SaveFilmInput): NormalizedFilmInpu
   }
 
   const franchiseName = String(input.franchiseName ?? "").trim();
+  const studioName = String(input.studioName ?? "").trim();
 
   return {
     title,
@@ -83,6 +86,7 @@ export function normalizeSaveFilmInput(input: SaveFilmInput): NormalizedFilmInpu
     categories: categories.length > 0 ? categories : ["Movies"],
     cast,
     franchiseName: franchiseName.length > 0 ? franchiseName : null,
+    studioName: studioName.length > 0 ? studioName : null,
   };
 }
 

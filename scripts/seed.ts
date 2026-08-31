@@ -81,6 +81,8 @@ async function seedFilm(film: SeedFilm, franchiseName: string | null): Promise<v
     director: film.director,
     posterKey: null,
     franchiseName,
+    // The seed predates studios; they are logged through the dialog.
+    studioName: null,
     categories: film.categories,
     // The seed's cast is hand-written rather than fetched, so it has no TMDB
     // ids. Those rows resolve on name until a TMDB-sourced credit claims them.

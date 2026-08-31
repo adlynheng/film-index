@@ -5,21 +5,22 @@ import { AddTitleModal } from "@/components/add-title/AddTitleModal";
 import { AddTitleButton } from "@/components/film-index/AddTitleButton";
 import { CategoryChips } from "@/components/film-index/CategoryChips";
 import { FilmGrid } from "@/components/film-index/FilmGrid";
-import { FranchiseSection } from "@/components/film-index/FranchiseSection";
+import { FilmGroupSection } from "@/components/film-index/FilmGroupSection";
 import { IndexHeader } from "@/components/film-index/IndexHeader";
 import { SiteFooter } from "@/components/film-index/SiteFooter";
 import { SortControls } from "@/components/film-index/SortControls";
 import { buildFilmImage, type FilmImage } from "@/lib/images/r2";
-import type { FilmCategory, FilmSummary, Franchise } from "@/lib/types";
+import type { ChipFilter, FilmCategory, FilmGroup, FilmSummary } from "@/lib/types";
 
 interface IndexPageClientProps {
   films: FilmSummary[];
-  franchises: Franchise[];
+  franchises: FilmGroup[];
+  studios: FilmGroup[];
   isOwner: boolean;
 }
 
-export function IndexPageClient({ films, franchises, isOwner }: IndexPageClientProps) {
-  const [selectedCategories, setSelectedCategories] = useState<(FilmCategory | "Franchises")[]>([]);
+export function IndexPageClient({ films, franchises, studios, isOwner }: IndexPageClientProps) {
+  const [selectedFilters, setSelectedFilters] = useState<ChipFilter[]>([]);
   const [sortBy, setSortBy] = useState<"year" | "title">("year");
   const [isAddingTitle, setIsAddingTitle] = useState(false);
 
@@ -31,16 +32,20 @@ export function IndexPageClient({ films, franchises, isOwner }: IndexPageClientP
     return map;
   }, [films]);
 
-  const showingFranchises = selectedCategories.includes("Franchises");
+  const showingFranchises = selectedFilters.includes("Franchises");
+  const showingStudios = selectedFilters.includes("Studios");
   const activeCategoryFilters = useMemo(
-    () => selectedCategories.filter((category): category is FilmCategory => category !== "Franchises"),
-    [selectedCategories]
+    () =>
+      selectedFilters.filter(
+        (filter): filter is FilmCategory => filter !== "Franchises" && filter !== "Studios"
+      ),
+    [selectedFilters]
   );
 
-  // The flat grid and the grouped franchise view are independent, as in the
-  // source design: picking "Franchises" alongside "Movies" shows both. The grid
-  // hides only when "Franchises" is the sole selection.
-  const gridActive = selectedCategories.length === 0 || activeCategoryFilters.length > 0;
+  // The flat grid and the grouped views are independent, as in the source
+  // design: picking "Franchises" alongside "Movies" shows both. The grid hides
+  // only when the grouped views are the whole selection.
+  const gridActive = selectedFilters.length === 0 || activeCategoryFilters.length > 0;
 
   const visibleFilms = useMemo(() => {
     const filtered =
@@ -52,9 +57,9 @@ export function IndexPageClient({ films, franchises, isOwner }: IndexPageClientP
     );
   }, [films, activeCategoryFilters, sortBy]);
 
-  function toggleCategory(category: FilmCategory | "Franchises") {
-    setSelectedCategories((current) =>
-      current.includes(category) ? current.filter((selected) => selected !== category) : [...current, category]
+  function toggleFilter(filter: ChipFilter) {
+    setSelectedFilters((current) =>
+      current.includes(filter) ? current.filter((selected) => selected !== filter) : [...current, filter]
     );
   }
 
@@ -74,9 +79,9 @@ export function IndexPageClient({ films, franchises, isOwner }: IndexPageClientP
 
         <div className="mt-[96px] flex flex-wrap items-center justify-between gap-[24px] pb-[18px]">
           <CategoryChips
-            selected={selectedCategories}
-            onToggle={toggleCategory}
-            onClearAll={() => setSelectedCategories([])}
+            selected={selectedFilters}
+            onToggle={toggleFilter}
+            onClearAll={() => setSelectedFilters([])}
           />
           <SortControls sortBy={sortBy} onChange={setSortBy} />
         </div>
@@ -90,13 +95,30 @@ export function IndexPageClient({ films, franchises, isOwner }: IndexPageClientP
             <p className="my-[80px] text-[17px] text-muted">Nothing logged in these categories yet.</p>
           ))}
 
-        {showingFranchises && (
-          <div className="mt-[64px] flex flex-col gap-[96px]">
-            {franchises.map((franchise) => (
-              <FranchiseSection key={franchise.id} franchise={franchise} imageByFilmId={imageByFilmId} />
-            ))}
-          </div>
-        )}
+        {/* Both grouped views say so when they are empty rather than leaving the
+            page blank — a grouping only exists once a title has been filed
+            under it, so "none yet" is the ordinary early state. */}
+        {showingFranchises &&
+          (franchises.length > 0 ? (
+            <div className="mt-[64px] flex flex-col gap-[96px]">
+              {franchises.map((franchise) => (
+                <FilmGroupSection key={franchise.id} group={franchise} imageByFilmId={imageByFilmId} />
+              ))}
+            </div>
+          ) : (
+            <p className="my-[80px] text-[17px] text-muted">No franchises logged yet.</p>
+          ))}
+
+        {showingStudios &&
+          (studios.length > 0 ? (
+            <div className="mt-[64px] flex flex-col gap-[96px]">
+              {studios.map((studio) => (
+                <FilmGroupSection key={studio.id} group={studio} imageByFilmId={imageByFilmId} />
+              ))}
+            </div>
+          ) : (
+            <p className="my-[80px] text-[17px] text-muted">No studios logged yet.</p>
+          ))}
       </main>
 
       <SiteFooter />
@@ -106,10 +128,10 @@ export function IndexPageClient({ films, franchises, isOwner }: IndexPageClientP
       {isAddingTitle ? (
         <AddTitleModal
           onClose={() => setIsAddingTitle(false)}
-          // The franchise picker's options come from the franchises already
-          // fetched for the Franchises view, so opening the modal costs no
-          // extra query.
+          // Both pickers' options come from the groups already fetched for the
+          // grouped views, so opening the modal costs no extra query.
           existingFranchises={franchises.map((franchise) => franchise.name)}
+          existingStudios={studios.map((studio) => studio.name)}
         />
       ) : null}
     </div>

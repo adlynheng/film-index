@@ -22,6 +22,7 @@ export interface DraftFilm {
   categories: FilmCategory[];
   cast: DraftCastMember[];
   franchiseName: string | null;
+  studioName: string | null;
 }
 
 // Matches the design's emptyDraft, which starts on "Movies" rather than on no
@@ -33,4 +34,5 @@ export const EMPTY_DRAFT: DraftFilm = {
   categories: ["Movies"],
   cast: [],
   franchiseName: null,
+  studioName: null,
 };

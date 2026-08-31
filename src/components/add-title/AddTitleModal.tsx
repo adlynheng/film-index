@@ -4,7 +4,7 @@ import { useCallback, useEffect, useId, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CategoryPicker } from "@/components/add-title/CategoryPicker";
 import { EMPTY_DRAFT, type DraftFilm } from "@/components/add-title/draftFilm";
-import { FranchisePicker } from "@/components/add-title/FranchisePicker";
+import { GroupPicker } from "@/components/add-title/GroupPicker";
 import { BLANK_CAST_ROWS, ManualDetailsFields } from "@/components/add-title/ManualDetailsFields";
 import { SearchResultsList } from "@/components/add-title/SearchResultsList";
 import { TitleSearchField } from "@/components/add-title/TitleSearchField";
@@ -19,9 +19,10 @@ import type { FilmCategory } from "@/lib/types";
 interface AddTitleModalProps {
   onClose: () => void;
   existingFranchises: string[];
+  existingStudios: string[];
 }
 
-export function AddTitleModal({ onClose, existingFranchises }: AddTitleModalProps) {
+export function AddTitleModal({ onClose, existingFranchises, existingStudios }: AddTitleModalProps) {
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [draft, setDraft] = useState<DraftFilm>(EMPTY_DRAFT);
@@ -92,9 +93,9 @@ export function AddTitleModal({ onClose, existingFranchises }: AddTitleModalProp
 
   function clearPick() {
     // The design's Clear is "start over", so it wipes the query too — the
-    // franchise and the frame are the two things worth keeping across a
-    // re-search, and only the franchise lives in the draft.
-    setDraft({ ...EMPTY_DRAFT, franchiseName: draft.franchiseName });
+    // groupings and the frame are what is worth keeping across a re-search,
+    // and only the groupings live in the draft.
+    setDraft({ ...EMPTY_DRAFT, franchiseName: draft.franchiseName, studioName: draft.studioName });
     setQuery("");
     setIsPicked(false);
   }
@@ -122,6 +123,7 @@ export function AddTitleModal({ onClose, existingFranchises }: AddTitleModalProp
         categories: draft.categories,
         cast: draft.cast,
         franchiseName: draft.franchiseName,
+        studioName: draft.studioName,
         frameImageBytes,
       });
       onClose();
@@ -236,10 +238,27 @@ export function AddTitleModal({ onClose, existingFranchises }: AddTitleModalProp
           <div className="text-[12px] uppercase tracking-[0.09em] text-muted">
             Franchise <span className="normal-case tracking-normal">— optional</span>
           </div>
-          <FranchisePicker
+          <GroupPicker
             value={draft.franchiseName}
             onChange={(franchiseName) => setDraft((current) => ({ ...current, franchiseName }))}
-            existingFranchises={existingFranchises}
+            options={existingFranchises}
+            label="Franchise"
+            noneLabel="None — standalone title"
+            placeholder="None — or type a new franchise name"
+          />
+        </div>
+
+        <div className="mt-[26px]">
+          <div className="text-[12px] uppercase tracking-[0.09em] text-muted">
+            Studio <span className="normal-case tracking-normal">— optional</span>
+          </div>
+          <GroupPicker
+            value={draft.studioName}
+            onChange={(studioName) => setDraft((current) => ({ ...current, studioName }))}
+            options={existingStudios}
+            label="Studio"
+            noneLabel="None — no studio logged"
+            placeholder="None — or type a new studio name"
           />
         </div>
 

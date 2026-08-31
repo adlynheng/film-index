@@ -8,6 +8,7 @@ const VALID = {
   categories: ["Movies"] as const,
   cast: [{ name: "Leonardo DiCaprio", role: "Dom Cobb" }],
   franchiseName: null,
+  studioName: null,
 };
 
 function input(overrides: Record<string, unknown> = {}) {
@@ -32,6 +33,12 @@ describe("normalizeSaveFilmInput", () => {
     expect(normalizeSaveFilmInput(input({ director: "  Joel Coen ,,Ethan Coen  " })).director).toBe(
       "Joel Coen, Ethan Coen"
     );
+  });
+
+  it("trims a studio and empties it to null, as it does a franchise", () => {
+    expect(normalizeSaveFilmInput(input({ studioName: "  Studio Ghibli  " })).studioName).toBe("Studio Ghibli");
+    expect(normalizeSaveFilmInput(input({ studioName: "   " })).studioName).toBeNull();
+    expect(normalizeSaveFilmInput(input({ studioName: undefined })).studioName).toBeNull();
   });
 
   it("turns an empty director into null rather than an empty string", () => {

@@ -4,32 +4,35 @@ import { useId, useMemo, useState } from "react";
 import { useListboxNavigation } from "@/hooks/useListboxNavigation";
 import { ChevronDown } from "lucide-react";
 
-const NONE_LABEL = "None — standalone title";
-
-interface FranchisePickerProps {
+interface GroupPickerProps {
   value: string | null;
-  onChange: (franchiseName: string | null) => void;
-  existingFranchises: string[];
+  onChange: (groupName: string | null) => void;
+  /** Names already in the index, offered in the dropdown. */
+  options: string[];
+  /** What this grouping is called — "Franchise", "Studio" — for the field's accessible name. */
+  label: string;
+  /** The first option, and the summary line when nothing is chosen. */
+  noneLabel: string;
+  placeholder: string;
 }
 
 /**
- * A free-text field with a dropdown of franchises already in the index, per
+ * A free-text field with a dropdown of the groupings already in the index, per
  * the "Franchise — optional" block in My Film Index.dc.html. Typing a name
- * that does not exist yet is the intended way to start a new franchise:
- * `insertFilm` resolves the name to a row, creating it if needed, so nothing
- * here has to know whether the name is new.
+ * that does not exist yet is the intended way to start a new one: `insertFilm`
+ * resolves the name to a row, creating it if needed, so nothing here has to
+ * know whether the name is new.
+ *
+ * Franchises and studios are the same control with different rows behind it.
  */
-export function FranchisePicker({ value, onChange, existingFranchises }: FranchisePickerProps) {
+export function GroupPicker({ value, onChange, options: existingNames, label, noneLabel, placeholder }: GroupPickerProps) {
   const listboxId = useId();
   const [isOpen, setIsOpen] = useState(false);
 
-  const sortedFranchises = useMemo(
-    () => [...existingFranchises].sort((a, b) => a.localeCompare(b)),
-    [existingFranchises]
-  );
+  const sortedNames = useMemo(() => [...existingNames].sort((a, b) => a.localeCompare(b)), [existingNames]);
 
-  // "None" leads the list, so an option's index is one ahead of its franchise.
-  const options = useMemo<(string | null)[]>(() => [null, ...sortedFranchises], [sortedFranchises]);
+  // "None" leads the list, so an option's index is one ahead of its name.
+  const options = useMemo<(string | null)[]>(() => [null, ...sortedNames], [sortedNames]);
 
   function choose(option: string | null) {
     onChange(option);
@@ -59,8 +62,8 @@ export function FranchisePicker({ value, onChange, existingFranchises }: Franchi
               setActiveIndex(-1);
             }}
             onKeyDown={onKeyDown}
-            placeholder="None — or type a new franchise name"
-            aria-label="Franchise"
+            placeholder={placeholder}
+            aria-label={label}
             role="combobox"
             aria-expanded={isOpen}
             aria-controls={listboxId}
@@ -75,8 +78,8 @@ export function FranchisePicker({ value, onChange, existingFranchises }: Franchi
               setActiveIndex(-1);
             }}
             aria-expanded={isOpen}
-            aria-label="Choose an existing franchise"
-            title="Choose an existing franchise"
+            aria-label={`Choose an existing ${label.toLowerCase()}`}
+            title={`Choose an existing ${label.toLowerCase()}`}
             // Tailwind v4's rotate-* sets the CSS `rotate` property rather than
             // `transform`, so the transition has to name `rotate` to animate.
             className={`flex h-[26px] w-[30px] cursor-pointer items-center justify-center bg-transparent text-[11px] text-mutedStrong transition-[rotate,color] duration-[140ms] hover:text-ink ${
@@ -92,7 +95,7 @@ export function FranchisePicker({ value, onChange, existingFranchises }: Franchi
             ref={listRef}
             id={listboxId}
             role="listbox"
-            aria-label="Franchises in the index"
+            aria-label={`${label}s in the index`}
             className="absolute left-0 right-0 top-full z-[6] max-h-[220px] overflow-y-auto border border-t-0 border-borderStrong bg-paper"
           >
             {options.map((option, index) => (
@@ -110,7 +113,7 @@ export function FranchisePicker({ value, onChange, existingFranchises }: Franchi
                     value === option || index === activeIndex ? "bg-tile" : "bg-transparent"
                   } ${option === null ? "text-muted" : "text-ink"}`}
                 >
-                  {option ?? NONE_LABEL}
+                  {option ?? noneLabel}
                 </button>
               </li>
             ))}
@@ -118,7 +121,7 @@ export function FranchisePicker({ value, onChange, existingFranchises }: Franchi
         ) : null}
       </div>
 
-      <div className={`mt-[9px] text-[12.5px] ${value ? "text-ink" : "text-muted"}`}>{value ?? NONE_LABEL}</div>
+      <div className={`mt-[9px] text-[12.5px] ${value ? "text-ink" : "text-muted"}`}>{value ?? noneLabel}</div>
     </>
   );
 }

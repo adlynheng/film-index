@@ -41,6 +41,7 @@ export async function saveFilm(input: SaveFilmInput): Promise<{ slug: string }> 
     director: film.director,
     posterKey,
     franchiseName: film.franchiseName,
+    studioName: film.studioName,
     categories: film.categories,
     cast: film.cast,
   });
