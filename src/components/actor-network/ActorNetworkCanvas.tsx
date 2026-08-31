@@ -1,13 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import Link from "next/link";
 import { select } from "d3-selection";
 import { zoom, zoomIdentity, type D3ZoomEvent, type ZoomBehavior, type ZoomTransform } from "d3-zoom";
 import { ActorHoverPanel } from "@/components/actor-network/ActorHoverPanel";
 import { ActorSearchField } from "@/components/actor-network/ActorSearchField";
 import { ZoomControls } from "@/components/actor-network/ZoomControls";
-import { nodeRadius, type PositionedActorGraph } from "@/lib/network/layout";
+import { nodeRadius, type NodePosition, type PositionedActorGraph } from "@/lib/network/layout";
 
 const MIN_SCALE = 0.2;
 const MAX_SCALE = 3.5;
@@ -17,6 +17,16 @@ const BUTTON_ZOOM_STEP = 1.25;
 // wall of overlapping names. Both thresholds come from the design.
 const LABEL_SCALE_THRESHOLD = 0.62;
 const LABEL_DEGREE_THRESHOLD = 6;
+
+// "Reset view" animates rather than cuts, so the reader can see where a node
+// they dragged came from. Cubic ease-in, as specified.
+const RESET_DURATION_MS = 620;
+const easeInCubic = (progress: number) => progress * progress * progress;
+const interpolate = (from: number, to: number, t: number) => from + (to - from) * t;
+
+// Marks a node group for the zoom behaviour's filter, below.
+const NODE_ATTRIBUTE = "data-actor-node";
+const NODE_SELECTOR = `[${NODE_ATTRIBUTE}]`;
 
 interface ActorNetworkCanvasProps {
   // Already laid out: coordinates are resolved on the server, so this
@@ -35,12 +45,45 @@ export function ActorNetworkCanvas({ graph }: ActorNetworkCanvasProps) {
   const [view, setView] = useState<ZoomTransform>(zoomIdentity);
   const [query, setQuery] = useState("");
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
+  // Only the nodes the reader has dragged; everything else keeps the position
+  // the server's layout resolved.
+  const [draggedPositions, setDraggedPositions] = useState<Map<string, NodePosition>>(() => new Map());
+
+  // A drag reads the live zoom scale to convert pointer pixels into layout
+  // units, and does so outside React's render, so it needs the transform in a
+  // ref rather than in the state the render tree uses.
+  const viewRef = useRef(view);
+  useEffect(() => {
+    viewRef.current = view;
+  }, [view]);
+
+  const resetFrameRef = useRef<number | null>(null);
+  const cancelResetAnimation = useCallback(() => {
+    if (resetFrameRef.current === null) return;
+    cancelAnimationFrame(resetFrameRef.current);
+    resetFrameRef.current = null;
+  }, []);
+
+  const dragRef = useRef<{
+    nodeId: string;
+    pointerId: number;
+    pointerX: number;
+    pointerY: number;
+    originX: number;
+    originY: number;
+  } | null>(null);
 
   const bounds = graph.bounds;
-  const positionById = useMemo(
-    () => new Map(graph.nodes.map((node) => [node.id, { x: node.x, y: node.y }])),
+  // The server's layout, which a drag departs from and the reset returns to.
+  const layoutPositionById = useMemo(
+    () => new Map<string, NodePosition>(graph.nodes.map((node) => [node.id, { x: node.x, y: node.y }])),
     [graph.nodes]
   );
+  const positionById = useMemo(() => {
+    const positions = new Map(layoutPositionById);
+    for (const [nodeId, position] of draggedPositions) positions.set(nodeId, position);
+    return positions;
+  }, [layoutPositionById, draggedPositions]);
 
   const neighborsByNodeId = useMemo(() => {
     const map = new Map<string, Set<string>>();
@@ -90,10 +133,29 @@ export function ActorNetworkCanvas({ graph }: ActorNetworkCanvasProps) {
 
     const behavior = zoom<SVGSVGElement, unknown>()
       .scaleExtent([MIN_SCALE, MAX_SCALE])
+      // d3-zoom binds its own mousedown/touchstart listener directly to the
+      // svg, so it sees a press on a node before React's delegated handler
+      // does and stopPropagation cannot get there first. Declining the gesture
+      // here is what lets a node be dragged without also panning the canvas.
+      // Wheel events are exempt: zooming should work over a node too.
+      .filter((event: Event) => {
+        const gesture = event as MouseEvent;
+        if (gesture.ctrlKey || gesture.button) return false;
+        if (event.type === "wheel") return true;
+        return !(event.target as Element | null)?.closest(NODE_SELECTOR);
+      })
       .on("zoom", (event: D3ZoomEvent<SVGSVGElement, unknown>) => {
-        // sourceEvent is null for programmatic transforms (the fit and reset),
-        // which is what keeps those from counting as the reader taking over.
-        if (event.sourceEvent) userHasMovedViewRef.current = true;
+        // sourceEvent is null for programmatic transforms (the fit and the
+        // reset's own frames), which is what keeps those from counting as the
+        // reader taking over — and what lets a real gesture interrupt the
+        // reset rather than fight it for the transform.
+        if (event.sourceEvent) {
+          userHasMovedViewRef.current = true;
+          if (resetFrameRef.current !== null) {
+            cancelAnimationFrame(resetFrameRef.current);
+            resetFrameRef.current = null;
+          }
+        }
         setView(event.transform);
       });
 
@@ -121,22 +183,133 @@ export function ActorNetworkCanvas({ graph }: ActorNetworkCanvasProps) {
     return () => observer.disconnect();
   }, [computeFitTransform]);
 
-  const zoomByFactor = useCallback((factor: number) => {
-    const svg = svgRef.current;
-    const behavior = zoomBehaviorRef.current;
-    if (!svg || !behavior) return;
-    userHasMovedViewRef.current = true;
-    behavior.scaleBy(select(svg), factor);
-  }, []);
+  const zoomByFactor = useCallback(
+    (factor: number) => {
+      const svg = svgRef.current;
+      const behavior = zoomBehaviorRef.current;
+      if (!svg || !behavior) return;
+      cancelResetAnimation();
+      userHasMovedViewRef.current = true;
+      behavior.scaleBy(select(svg), factor);
+    },
+    [cancelResetAnimation]
+  );
 
+  /**
+   * Returns the camera and every dragged node to where they started, on one
+   * animation: two rAF loops would drift apart, and the point of animating is
+   * that a node and the view it sits in travel together.
+   *
+   * Each frame still goes through behavior.transform, so d3-zoom remains the
+   * single source of truth for the view — it is a programmatic transform, so
+   * it does not count as the reader taking the view over.
+   */
   const resetView = useCallback(() => {
     const svg = svgRef.current;
     const behavior = zoomBehaviorRef.current;
     if (!svg || !behavior) return;
+
+    cancelResetAnimation();
     userHasMovedViewRef.current = false;
     setQuery("");
-    behavior.transform(select(svg), computeFitTransform());
-  }, [computeFitTransform]);
+
+    const startView = viewRef.current;
+    const endView = computeFitTransform();
+    const startPositions = new Map(draggedPositions);
+
+    const settle = () => {
+      behavior.transform(select(svg), endView);
+      setDraggedPositions(new Map());
+    };
+
+    // A reset is a jump the reader asked for; with reduced motion they get the
+    // destination without the travel.
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      settle();
+      return;
+    }
+
+    const startedAt = performance.now();
+    const step = (now: number) => {
+      const progress = Math.min(1, (now - startedAt) / RESET_DURATION_MS);
+      if (progress >= 1) {
+        resetFrameRef.current = null;
+        settle();
+        return;
+      }
+
+      const eased = easeInCubic(progress);
+      behavior.transform(
+        select(svg),
+        zoomIdentity
+          .translate(interpolate(startView.x, endView.x, eased), interpolate(startView.y, endView.y, eased))
+          .scale(interpolate(startView.k, endView.k, eased))
+      );
+
+      if (startPositions.size > 0) {
+        const frame = new Map<string, NodePosition>();
+        for (const [nodeId, from] of startPositions) {
+          const to = layoutPositionById.get(nodeId);
+          if (!to) continue;
+          frame.set(nodeId, {
+            x: interpolate(from.x, to.x, eased),
+            y: interpolate(from.y, to.y, eased),
+          });
+        }
+        setDraggedPositions(frame);
+      }
+
+      resetFrameRef.current = requestAnimationFrame(step);
+    };
+
+    resetFrameRef.current = requestAnimationFrame(step);
+  }, [cancelResetAnimation, computeFitTransform, draggedPositions, layoutPositionById]);
+
+  useEffect(() => cancelResetAnimation, [cancelResetAnimation]);
+
+  // Dragging moves a node on the settled layout rather than re-running the
+  // simulation: d3-force is server-side only (see layout.ts), so the reader is
+  // rearranging the picture, not re-solving it. Edges follow because they read
+  // their endpoints from the same position map.
+  const startNodeDrag = useCallback(
+    (event: ReactPointerEvent<SVGGElement>, nodeId: string, origin: NodePosition) => {
+      if (event.button !== 0) return;
+      cancelResetAnimation();
+      event.currentTarget.setPointerCapture(event.pointerId);
+      dragRef.current = {
+        nodeId,
+        pointerId: event.pointerId,
+        pointerX: event.clientX,
+        pointerY: event.clientY,
+        originX: origin.x,
+        originY: origin.y,
+      };
+    },
+    [cancelResetAnimation]
+  );
+
+  const continueNodeDrag = useCallback((event: ReactPointerEvent<SVGGElement>) => {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    // Pointer pixels are screen-space; the graph is drawn in layout units, so
+    // the delta divides by the zoom scale or a drag would run away when zoomed
+    // in and lag when zoomed out.
+    const scale = viewRef.current.k;
+    const position = {
+      x: drag.originX + (event.clientX - drag.pointerX) / scale,
+      y: drag.originY + (event.clientY - drag.pointerY) / scale,
+    };
+    setDraggedPositions((current) => new Map(current).set(drag.nodeId, position));
+  }, []);
+
+  const endNodeDrag = useCallback((event: ReactPointerEvent<SVGGElement>) => {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    dragRef.current = null;
+  }, []);
 
   const trimmedQuery = query.trim().toLowerCase();
   const matchingNodeIds = useMemo(
@@ -250,10 +423,17 @@ export function ActorNetworkCanvas({ graph }: ActorNetworkCanvasProps) {
             return (
               <g
                 key={node.id}
+                {...{ [NODE_ATTRIBUTE]: "" }}
                 transform={`translate(${position.x.toFixed(1)},${position.y.toFixed(1)})`}
                 onMouseEnter={() => setHoveredNodeId(node.id)}
                 onMouseLeave={() => setHoveredNodeId(null)}
-                className="cursor-pointer"
+                onPointerDown={(event) => startNodeDrag(event, node.id, position)}
+                onPointerMove={continueNodeDrag}
+                onPointerUp={endNodeDrag}
+                onPointerCancel={endNodeDrag}
+                // touch-none: without it a touch drag scrolls the page instead
+                // of moving the node.
+                className="cursor-grab touch-none active:cursor-grabbing"
               >
                 {/* Invisible, larger hit target: the dots get down to 4.5px. */}
                 <circle r={Math.max(14, radius + 8)} fill="transparent" />
