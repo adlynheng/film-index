@@ -67,7 +67,7 @@ export function IndexPageClient({ films, franchises, isOwner }: IndexPageClientP
           My Film Index
         </h1>
 
-        <p className="mx-auto mt-[34px] max-w-[760px] text-pretty text-center text-[17px] leading-[1.45] text-body">
+        <p className="mx-auto mt-[42px] max-w-[620px] text-pretty text-center text-[17px] leading-[1.45] text-body">
           Everything I&rsquo;ve watched, kept in one place. Films, series, animation and documentaries — logged as I go,
           with the people who made them.
         </p>

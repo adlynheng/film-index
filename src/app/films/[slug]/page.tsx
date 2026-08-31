@@ -26,7 +26,7 @@ export default async function FilmDetailPage({ params }: FilmDetailPageProps) {
         Back
       </Link>
 
-      <main className="mt-[clamp(16px,2.6vh,30px)] grid grid-cols-[minmax(0,1fr)] gap-x-[52px] pb-[36px] min-[700px]:grid-cols-[minmax(0,1fr)_minmax(260px,25%)]">
+      <main className="mt-[clamp(16px,1.6vh,24px)] grid grid-cols-[minmax(0,1fr)] gap-x-[52px] pb-[36px] min-[700px]:grid-cols-[minmax(0,1fr)_minmax(260px,25%)]">
         <FilmHero
           title={film.title}
           yearLabel={film.year ? `(${film.year})` : ""}

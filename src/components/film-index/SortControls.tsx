@@ -7,7 +7,7 @@ interface SortControlsProps {
 
 const SORT_OPTIONS: { value: SortOption; label: string }[] = [
   { value: "year", label: "Year" },
-  { value: "title", label: "Title" },
+  { value: "title", label: "A-Z" },
 ];
 
 export function SortControls({ sortBy, onChange }: SortControlsProps) {

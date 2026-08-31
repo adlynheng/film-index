@@ -36,6 +36,7 @@
   --color-borderFaint: #ebebe5;
   --color-borderDashed: #c0c0b8;
   --color-tile: #efefeb;
+  --color-glassText: #1111101f;
   /* The franchise combobox input is the one surface in the design lighter
      than paper. */
   --color-field: #fffffe;

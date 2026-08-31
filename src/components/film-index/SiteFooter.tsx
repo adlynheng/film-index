@@ -19,11 +19,11 @@ export function SiteFooter() {
         <div className="text-[12px] uppercase tracking-[0.12em] text-footerMuted">Get in touch</div>
         <div className="mt-[16px] flex flex-col items-start gap-[11px] text-[15px]">
           {/* TODO: replace with your real LinkedIn URL and email address */}
-          <a href="#" className="border-b border-footerBorder pb-px text-footerText hover:border-paper hover:text-paper">
+          <a href="https://www.linkedin.com/in/adlyn-heng/" target="_blank" rel="noopener noreferrer" className="border-b border-footerBorder pb-px text-footerText hover:border-paper hover:text-paper">
             LinkedIn
           </a>
           <a
-            href="mailto:hello@example.com"
+            href="mailto:adlynheng@gmail.com"
             className="border-b border-footerBorder pb-px text-footerText hover:border-paper hover:text-paper"
           >
             Email me
