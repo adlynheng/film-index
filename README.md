@@ -124,7 +124,7 @@ The cookie gates *rendering* of the "+" button and the frame editor, but the rea
 
 ## Images
 
-A frame is framed before it is stored. The crop field renders the framed region to a canvas and exports WebP at up to **1280 px wide**, and its window is 16:9 — so a cropped frame is 16:9, the same shape as every container that displays it. A file that is uploaded and never reframed is stored exactly as it arrived, at whatever aspect ratio it happens to have.
+A frame is framed before it is stored. The crop field renders the framed region to a canvas and exports WebP at up to **1280 px wide**, and its window is 16:9 — so a cropped frame is 16:9, the same shape as every container that displays it. A file that is uploaded and never reframed keeps whatever aspect ratio it arrived with — the crop replaces the file only once the framing has actually been moved, so an untouched frame is never softened by a second lossy pass in the browser. It is still re-encoded server-side: every stored variant is WebP either way. The only difference is what the browser posts — a reframed crop travels as WebP, an untouched file in its original format, which is why a large PNG is the case `bodySizeLimit` below has to accommodate.
 
 On upload, `sharp` produces four WebP variants, respecting EXIF orientation and never upscaling past the source:
 
