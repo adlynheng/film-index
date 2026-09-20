@@ -34,7 +34,7 @@ const MIN_SCALE = 1;
 const WHEEL_BASE = 1.0015;
 // The widest rung of the stored ladder (frameWidths.ts); the crop should never
 // hand the server more pixels than it keeps, nor upscale to reach it.
-const MAX_EXPORT_WIDTH = 1280;
+const MAX_EXPORT_WIDTH = 2560;
 const EXPORT_QUALITY = 0.92;
 const COMMIT_DELAY_MS = 180;
 

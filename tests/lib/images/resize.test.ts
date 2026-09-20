@@ -12,9 +12,9 @@ async function makeSourceImage(width: number, height: number): Promise<Buffer> {
 }
 
 describe("resizeFilmFrame", () => {
-  // The real upload shape: a 2.40:1 scope frame at 1280x533.
+  // The real upload shape: a 2.40:1 scope frame at the export cap, 2560x1067.
   it("produces one WebP variant per rung at the intended widths", async () => {
-    const variants = await resizeFilmFrame(await makeSourceImage(1280, 533));
+    const variants = await resizeFilmFrame(await makeSourceImage(2560, 1067));
 
     expect(variants.map((variant) => variant.width)).toEqual([...FRAME_WIDTHS]);
     for (const variant of variants) {
@@ -26,10 +26,10 @@ describe("resizeFilmFrame", () => {
   });
 
   it("preserves the source aspect ratio", async () => {
-    const variants = await resizeFilmFrame(await makeSourceImage(1280, 533));
+    const variants = await resizeFilmFrame(await makeSourceImage(2560, 1067));
     for (const variant of variants) {
       const meta = await sharp(variant.buffer).metadata();
-      expect(meta.width! / meta.height!).toBeCloseTo(1280 / 533, 2);
+      expect(meta.width! / meta.height!).toBeCloseTo(2560 / 1067, 2);
     }
   });
 
@@ -41,11 +41,11 @@ describe("resizeFilmFrame", () => {
     const widths = await Promise.all(
       variants.map(async (variant) => (await sharp(variant.buffer).metadata()).width)
     );
-    expect(widths).toEqual([480, 600, 600, 600]);
+    expect(widths).toEqual([480, 600, 600, 600, 600, 600]);
   });
 
   it("orders variants smallest first, so the srcset reads in ascending order", async () => {
-    const variants = await resizeFilmFrame(await makeSourceImage(1280, 533));
+    const variants = await resizeFilmFrame(await makeSourceImage(2560, 1067));
     const widths = variants.map((variant) => variant.width);
     expect([...widths].sort((a, b) => a - b)).toEqual(widths);
   });

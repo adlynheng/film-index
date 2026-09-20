@@ -8,8 +8,19 @@ export interface ImageVariant {
   contentType: "image/webp";
 }
 
-// Larger rungs keep more detail per byte, so quality can drop as width climbs.
-const QUALITY_BY_WIDTH: Record<FrameWidth, number> = { 480: 82, 720: 81, 960: 80, 1280: 78 };
+// Quality tracks how hard a rung is squeezed on the way to the screen rather
+// than how wide it is. Everything up to 1280 is resampled down into a box
+// narrower than itself, and that resampling averages artefacts away, so those
+// rungs can afford less. The top two feed the detail hero at roughly 1:1 on a
+// 2x display, where nothing hides anything — so the curve climbs again.
+const QUALITY_BY_WIDTH: Record<FrameWidth, number> = {
+  480: 82,
+  720: 81,
+  960: 80,
+  1280: 78,
+  1920: 82,
+  2560: 82,
+};
 
 export async function resizeFilmFrame(sourceBuffer: Buffer): Promise<ImageVariant[]> {
   // rotate() applies the EXIF orientation flag before resizing, so a frame

@@ -4,7 +4,7 @@ import { getFilmFrameRef } from "@/lib/db/films";
 import { buildImageUrl } from "@/lib/images/r2";
 
 // The widest rung stored, which is the most the crop editor can work from.
-const SOURCE_WIDTH = 1280;
+const SOURCE_WIDTH = 2560;
 
 /**
  * The bytes of a film's stored frame, served from this origin.
