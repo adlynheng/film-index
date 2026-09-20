@@ -376,7 +376,11 @@ export function ActorNetworkCanvas({ graph }: ActorNetworkCanvasProps) {
     return view.k >= LABEL_SCALE_THRESHOLD || node.degree >= LABEL_DEGREE_THRESHOLD;
   });
 
-  const labelFontSize = Math.max(10, Math.min(14, 12.5 * Math.max(0.85, Math.min(1.15, view.k))));
+  // Tracks the zoom between 0.85 and 1.15 and clamps outside it, so a label is
+  // never larger than the graph can carry nor too small to read. The lower
+  // clamp, 11 * 0.85 = 9.35px, is the size the layout's label force assumes —
+  // LABEL_FONT_PX there has to change with this expression.
+  const labelFontSize = Math.max(9, Math.min(12.5, 11 * Math.max(0.85, Math.min(1.15, view.k))));
 
   return (
     <main className="relative h-screen w-full overflow-hidden bg-network">

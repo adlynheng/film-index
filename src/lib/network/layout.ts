@@ -11,10 +11,13 @@ export const LAYOUT_HEIGHT = 900;
 // takes longer to converge. 150 nodes make the extra ticks cheap.
 const SIMULATION_TICKS = 900;
 
-// Carried over from Actor Network.dc.html: a node's radius grows with its
-// degree, so the busiest actors read as the hubs they are.
+// A node's radius grows with its degree, so the busiest actors read as the hubs
+// they are — the prototype's idea, at about three quarters of its size. The
+// dots were drawn for a sparser graph than this one became; smaller ones leave
+// the clusters' shapes legible now that they are packed tightly together.
+// Spans 3.4 to 10, where the prototype's spanned 4.5 to 13.5.
 export function nodeRadius(degree: number): number {
-  return 4.5 + Math.min(9, degree * 0.7);
+  return 3.4 + Math.min(6.6, degree * 0.5);
 }
 
 export interface NodePosition {
@@ -30,13 +33,20 @@ interface SimulationActor extends SimulationNodeDatum {
 }
 
 // The canvas draws each label to the right of its node at `radius + 7`, then
-// sets the font in *screen* px, which clamps to a 10.625px floor once the
-// fitted scale falls below 0.85 — as this graph's does. A label therefore does
-// not shrink when the graph does, and its footprint in layout units is its
-// screen size divided by the fitted scale. That scale is measured rather than
-// assumed: 0.65 at the 1440x900 viewport this layout is tuned against.
-const FITTED_SCALE = 0.65;
-const LABEL_FONT_PX = 10.625;
+// sets the font in *screen* px, which clamps to a 9.35px floor once the fitted
+// scale falls below 0.85 — as this graph's does. A label therefore does not
+// shrink when the graph does, and its footprint in layout units is its screen
+// size divided by the fitted scale.
+//
+// LABEL_FONT_PX is ActorNetworkCanvas's font expression at its lower clamp and
+// has to be changed whenever that expression is. FITTED_SCALE is deliberately
+// not the scale a 1440x900 viewport settles on, which is 0.71, but the low end
+// of the range the page renders across — a 1280-wide window fits at about
+// 0.61. Assuming the smaller scale over-states every label's footprint by a
+// sixth at the roomier viewport, and that margin is what keeps the narrow one
+// clear as well; assuming the larger scale leaves 1280x800 overlapping.
+const FITTED_SCALE = 0.61;
+const LABEL_FONT_PX = 9.35;
 const LABEL_GAP = 7;
 const LABEL_LINE_HEIGHT = 1.2;
 // Breathing room, in layout units, so labels end up separated rather than
@@ -121,13 +131,28 @@ function forceLabelSeparation(strength: number): Force<SimulationActor, undefine
  * quadtree — O(N log N) per tick rather than the O(N²) of the prototype's
  * hand-rolled loop, which is what keeps this usable as the index grows.
  *
- * The link distance is the prototype's 96 exactly. The charge and centring
- * strengths were swept against this index's real topology: the index is mostly
- * disconnected film-cliques joined by a few bridging actors, and with weak
- * centring the cliques drift apart until the fit shrinks everything to an
- * unreadable 0.45 scale. The collision force is an addition — the prototype
- * had none, and it is what stops the dense clusters overlapping into an
- * unreadable blob.
+ * Every strength here was swept against this index's real topology, which is
+ * 16 disconnected components — one per film, give or take the few actors who
+ * bridge two — so "cluster" has a ground truth to tune against rather than an
+ * impression. With weak centring the components drift apart until the fit
+ * shrinks everything to an unreadable 0.45 scale. The collision force is an
+ * addition the prototype had none of, and it is what stops the dense clusters
+ * overlapping into a blob.
+ *
+ * The link settings are what define the clusters. d3 defaults link strength to
+ * 1 / min(degree of each end), which for an eight-strong film clique is about
+ * 0.14 — slack enough that the charge pulls the clique open until it overlaps
+ * its neighbours. Pinning it to 0.8 over a short distance holds each film
+ * together as a body, and the charge then separates those bodies instead of
+ * inflating them. Scored as the silhouette of the components over four node
+ * orderings: 0.17 at the old 96/auto/-220, 0.49 here, with the nearest
+ * node of another cluster going from 0.65x a node's own clustermates to
+ * 1.37x — from interpenetrating to plainly apart. Weighting link strength by
+ * `sharedFilmCount` was tried here and measured slightly worse (0.48), so the
+ * strength stays flat.
+ *
+ * The separation is paid for in zoom: the fitted scale falls from 0.77 to
+ * 0.71, since more sharply separated clusters need more room.
  *
  * Measured in the browser at a 1440x900 viewport: 82 overlapping label pairs
  * with centring at 0.1 and no label force, 17 with 0.16 and the force — and
@@ -160,9 +185,10 @@ function computeLayout(nodes: ActorNode[], edges: ActorEdge[]): Map<string, Node
       "link",
       forceLink<SimulationActor, SimulationLinkDatum<SimulationActor>>(simulationLinks)
         .id((node) => node.id)
-        .distance(96)
+        .distance(45)
+        .strength(0.8)
     )
-    .force("charge", forceManyBody().strength(-220))
+    .force("charge", forceManyBody().strength(-300))
     .force("collide", forceCollide<SimulationActor>().radius((node) => node.radius + 9))
     .force("labels", forceLabelSeparation(0.4))
     // 0.16 rather than the 0.1 this first shipped with — see the label force.

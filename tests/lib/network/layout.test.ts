@@ -52,9 +52,9 @@ describe("layoutActorGraph", () => {
   // The radius is what makes hubs read as hubs, and it is clamped so one very
   // well-connected actor cannot swamp the canvas.
   it("grows node radius with degree, up to a cap", () => {
-    expect(nodeRadius(0)).toBe(4.5);
+    expect(nodeRadius(0)).toBe(3.4);
     expect(nodeRadius(5)).toBeGreaterThan(nodeRadius(2));
-    expect(nodeRadius(100)).toBe(13.5);
+    expect(nodeRadius(100)).toBe(10);
   });
 
   // Same graph in, same picture out — a layout that drifted between renders
