@@ -28,6 +28,11 @@ const interpolate = (from: number, to: number, t: number) => from + (to - from) 
 const NODE_ATTRIBUTE = "data-actor-node";
 const NODE_SELECTOR = `[${NODE_ATTRIBUTE}]`;
 
+/** Two or more fingers down — a pinch, not a drag. */
+function isMultiTouch(event: Event): boolean {
+  return "touches" in event && (event as TouchEvent).touches.length > 1;
+}
+
 interface ActorNetworkCanvasProps {
   // Already laid out: coordinates are resolved on the server, so this
   // component only ever renders them. See the note in layout.ts.
@@ -140,8 +145,17 @@ export function ActorNetworkCanvas({ graph }: ActorNetworkCanvasProps) {
       // Wheel events are exempt: zooming should work over a node too.
       .filter((event: Event) => {
         const gesture = event as MouseEvent;
-        if (gesture.ctrlKey || gesture.button) return false;
+        if (gesture.button) return false;
+        // Before ctrlKey, not after. A trackpad pinch reaches the page as a
+        // wheel event carrying ctrlKey, so testing ctrlKey first rejects the
+        // pinch as though it were a ctrl-scroll and hands it to the browser's
+        // own page zoom. d3's default filter orders these two the same way,
+        // for the same reason.
         if (event.type === "wheel") return true;
+        if (gesture.ctrlKey) return false;
+        // A second finger means a pinch rather than a drag, and a pinch should
+        // zoom wherever it lands — including with a finger on a node.
+        if (isMultiTouch(event)) return true;
         return !(event.target as Element | null)?.closest(NODE_SELECTOR);
       })
       .on("zoom", (event: D3ZoomEvent<SVGSVGElement, unknown>) => {
@@ -164,6 +178,19 @@ export function ActorNetworkCanvas({ graph }: ActorNetworkCanvasProps) {
     return () => {
       select(svg).on(".zoom", null);
     };
+  }, []);
+
+  // A pinch that begins with one finger already resting on a node would
+  // otherwise drag that node across the canvas while the other finger zooms.
+  // The second pointer is the signal: it is never `isPrimary`.
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (!svg) return;
+    const dropDragOnSecondFinger = (event: PointerEvent) => {
+      if (!event.isPrimary) dragRef.current = null;
+    };
+    svg.addEventListener("pointerdown", dropDragOnSecondFinger);
+    return () => svg.removeEventListener("pointerdown", dropDragOnSecondFinger);
   }, []);
 
   useEffect(() => {
@@ -385,7 +412,15 @@ export function ActorNetworkCanvas({ graph }: ActorNetworkCanvasProps) {
         />
       </div>
 
-      <svg ref={svgRef} width="100%" height="100%" className="absolute inset-0 cursor-grab active:cursor-grabbing">
+      <svg
+        ref={svgRef}
+        width="100%"
+        height="100%"
+        // touch-none: without it the browser claims a two-finger pinch for its
+        // own page zoom and d3 never sees the gesture. Nothing is lost by
+        // taking it — the page itself is h-screen and does not scroll.
+        className="absolute inset-0 cursor-grab touch-none active:cursor-grabbing"
+      >
         <g transform={view.toString()}>
           {graph.edges.map((edge) => {
             const source = positionById.get(edge.sourceId);
